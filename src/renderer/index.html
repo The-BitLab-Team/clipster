@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clipster</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="assistant-window">
+      <header class="titlebar">
+        <div class="brand">Clipster</div>
+        <div class="mode-toggle">
+          <label class="toggle">
+            <span>Helpful</span>
+            <input id="modeSwitch" type="checkbox" />
+            <span class="slider"></span>
+            <span>Witty</span>
+          </label>
+        </div>
+      </header>
+
+      <section class="assistant-body">
+        <div class="sprite" aria-label="Assistente"></div>
+        <div class="chat">
+          <div id="messages" class="messages"></div>
+          <form id="chatForm" class="chat-input">
+            <input id="chatInput" type="text" placeholder="Digite sua pergunta..." autocomplete="off" />
+            <button type="submit">Enviar</button>
+          </form>
+        </div>
+      </section>
+
+      <footer class="status">
+        <span id="modeLabel">Modo: Helpful</span>
+      </footer>
+    </div>
+
+    <script src="renderer.js" defer></script>
+  </body>
+</html>

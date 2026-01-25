@@ -1,0 +1,21 @@
+{
+  "name": "clipster",
+  "version": "0.1.0",
+  "description": "Clipster - assistente de desktop moderno inspirado no Clippy",
+  "main": "dist/main/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.js",
+    "start": "npm run build && electron .",
+    "watch": "tsc -p tsconfig.json --watch",
+    "lint": "node -e \"console.log('lint: TODO')\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^32.1.0",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "clipster": "file:"
+  }
+}
