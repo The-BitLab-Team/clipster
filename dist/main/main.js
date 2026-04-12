@@ -91,16 +91,42 @@ const createTray = () => {
         }
     });
 };
+const normalizeText = (text) => text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
 const generateReply = (profile, messages) => {
     const lastUserMessage = messages.filter((m) => m.role === 'user').slice(-1)[0];
     if (!lastUserMessage) {
         return profile.exampleGreetings[0] ?? 'Olá! Como posso ajudar?';
     }
+    const input = normalizeText(lastUserMessage.content);
     // TODO: integrar com LLM local ou API. Manter fallback offline por padrão.
-    const base = profile.id === 'witty'
-        ? 'Certo. Aqui vai um resumo objetivo:'
-        : 'Claro! Aqui vai uma orientação inicial:';
-    return `${base} ${lastUserMessage.content}`;
+    const isQuestion = input.includes('?') || input.startsWith('como') || input.startsWith('o que');
+    const isError = input.includes('erro') || input.includes('falha') || input.includes('bug');
+    const isSetup = input.includes('instalar') || input.includes('configurar') || input.includes('setup');
+    if (profile.id === 'witty') {
+        if (isError) {
+            return 'Ah, os erros. Me diga o texto exato do erro e o que você estava fazendo. Eu prometo não julgar (muito).';
+        }
+        if (isSetup) {
+            return 'Configuração, hein? Diga o ambiente e o objetivo, e eu te poupo de 3 horas de sofrimento.';
+        }
+        if (isQuestion) {
+            return 'Vamos lá: explique seu contexto em 2 frases e eu te devolvo um plano de ação.';
+        }
+        return 'Entendi. Me dê mais detalhes (passos, objetivo, e o que já tentou) e eu ajusto a rota.';
+    }
+    if (isError) {
+        return 'Sinto muito pelo erro. Compartilhe a mensagem exata e os passos para reproduzir, e eu ajudo a diagnosticar.';
+    }
+    if (isSetup) {
+        return 'Claro! Informe seu sistema e o que deseja configurar, e eu te passo um passo a passo objetivo.';
+    }
+    if (isQuestion) {
+        return 'Para ajudar melhor, descreva seu contexto e o objetivo final. Posso sugerir um plano inicial.';
+    }
+    return 'Obrigado pela mensagem. Se puder detalhar o objetivo e o contexto, consigo orientar melhor.';
 };
 electron_1.app.whenReady().then(() => {
     personalities = loadPersonalities();
