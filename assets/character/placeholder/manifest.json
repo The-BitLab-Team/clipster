@@ -1,0 +1,9 @@
+{
+  "id": "placeholder",
+  "format": "svg",
+  "size": { "width": 160, "height": 160 },
+  "states": {
+    "idle": { "src": "idle.svg", "loop": true }
+  },
+  "fallbackState": "idle"
+}

@@ -1,0 +1,27 @@
+# Gera o instalador do Windows sob demanda (SPEC §31). Sem release e sem publicação:
+# o instalador fica disponível como "artifact" da execução do workflow.
+name: Build artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Instalador Windows (NSIS)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run package:win
+      - uses: actions/upload-artifact@v7
+        with:
+          name: clipster-windows
+          path: release/*/*.exe
+          retention-days: 14

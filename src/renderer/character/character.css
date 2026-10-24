@@ -1,0 +1,82 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+.character {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+.character svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  /* Só a silhueta recebe ponteiro; o resto da janela é "vazio" (SPEC §19.3). */
+  pointer-events: none;
+}
+
+.character [data-hit] {
+  pointer-events: visiblePainted;
+  cursor: grab;
+}
+
+.character.is-dragging [data-hit] {
+  cursor: grabbing;
+}
+
+.character:focus-visible svg {
+  filter: drop-shadow(0 0 2px #7ff2e2) drop-shadow(0 0 5px #17767a);
+}
+
+/* ── Microanimações (só com movimento completo) ── */
+
+.clp-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.clp-figure {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+[data-motion='full'] .character.is-blinking .clp-eye {
+  animation: clp-blink 170ms ease-in-out 1;
+}
+
+[data-motion='full'] .character.is-poked .clp-figure {
+  animation: clp-poke 420ms ease-out 1;
+}
+
+[data-motion='reduced'] .character.is-poked .clp-eye {
+  animation: clp-blink 170ms ease-in-out 1;
+}
+
+@keyframes clp-blink {
+  50% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes clp-poke {
+  25% {
+    transform: rotate(-4deg) scale(1.02, 0.98);
+  }
+  55% {
+    transform: rotate(3deg);
+  }
+  80% {
+    transform: rotate(-1deg);
+  }
+}

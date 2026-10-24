@@ -1,0 +1,105 @@
+/*
+ * Design tokens do Clipster (SPEC §15). Retrofuturista e discreto:
+ * superfícies com leve "bisel", acento azul-petróleo, cantos arredondados.
+ */
+:root {
+  color-scheme: light;
+
+  --clp-font-sans:
+    'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial,
+    sans-serif;
+  --clp-font-mono: 'Cascadia Mono', 'SF Mono', Consolas, 'Liberation Mono', monospace;
+
+  --clp-font-size-xs: 12px;
+  --clp-font-size-sm: 13px;
+  --clp-font-size-md: 14px;
+  --clp-font-size-lg: 18px;
+  --clp-font-size-xl: 22px;
+
+  --clp-space-1: 4px;
+  --clp-space-2: 8px;
+  --clp-space-3: 12px;
+  --clp-space-4: 16px;
+  --clp-space-5: 24px;
+  --clp-space-6: 32px;
+
+  --clp-radius-sm: 6px;
+  --clp-radius-md: 10px;
+  --clp-radius-lg: 14px;
+  --clp-radius-pill: 999px;
+
+  --clp-color-bg: #eef2f4;
+  --clp-color-surface: #ffffff;
+  --clp-color-surface-2: #f5f8f9;
+  --clp-color-sidebar: #e2e9ec;
+  --clp-color-border: #cbd6dc;
+  --clp-color-text: #15212a;
+  --clp-color-text-muted: #4d5d68;
+  --clp-color-accent: #17767a;
+  --clp-color-accent-hover: #126266;
+  --clp-color-accent-soft: #d6eeee;
+  --clp-color-on-accent: #ffffff;
+  --clp-color-focus: #0e7c86;
+  --clp-color-danger: #b42318;
+  --clp-color-danger-soft: #fdecea;
+  --clp-color-track: #b9c7cf;
+
+  --clp-shadow-sm: 0 1px 2px rgba(16, 24, 32, 0.08);
+  --clp-shadow-md: 0 6px 18px rgba(16, 24, 32, 0.1);
+  --clp-bevel: inset 0 1px 0 rgba(255, 255, 255, 0.85), inset 0 -1px 0 rgba(16, 24, 32, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --clp-color-bg: #12171b;
+    --clp-color-surface: #1a2227;
+    --clp-color-surface-2: #1f292f;
+    --clp-color-sidebar: #161d21;
+    --clp-color-border: #2e3b43;
+    --clp-color-text: #e6edf1;
+    --clp-color-text-muted: #a5b4be;
+    --clp-color-accent: #5fd6cc;
+    --clp-color-accent-hover: #7ff2e2;
+    --clp-color-accent-soft: #1d3a3c;
+    --clp-color-on-accent: #0b1a1f;
+    --clp-color-focus: #7ff2e2;
+    --clp-color-danger: #ff8a80;
+    --clp-color-danger-soft: #3a1f1d;
+    --clp-color-track: #3b4a53;
+    --clp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --clp-shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+    --clp-bevel: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --clp-color-bg: #12171b;
+  --clp-color-surface: #1a2227;
+  --clp-color-surface-2: #1f292f;
+  --clp-color-sidebar: #161d21;
+  --clp-color-border: #2e3b43;
+  --clp-color-text: #e6edf1;
+  --clp-color-text-muted: #a5b4be;
+  --clp-color-accent: #5fd6cc;
+  --clp-color-accent-hover: #7ff2e2;
+  --clp-color-accent-soft: #1d3a3c;
+  --clp-color-on-accent: #0b1a1f;
+  --clp-color-focus: #7ff2e2;
+  --clp-color-danger: #ff8a80;
+  --clp-color-danger-soft: #3a1f1d;
+  --clp-color-track: #3b4a53;
+  --clp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --clp-shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+  --clp-bevel: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

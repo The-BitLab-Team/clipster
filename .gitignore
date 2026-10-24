@@ -1,0 +1,35 @@
+# Dependências
+node_modules/
+
+# Saída de build e empacotamento
+out/
+dist/
+release/
+
+# Testes
+coverage/
+playwright-report/
+test-results/
+
+# Segredos e ambiente
+.env
+.env.*
+!.env.example
+
+# Logs e caches
+*.log
+logs/
+.vite/
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json
