@@ -1,6 +1,6 @@
 # Arquitetura
 
-Visão do código como está na versão 0.1.0 (Fases 0 e 1). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
+Visão do código como está na versão 0.2.0 (Fases 0, 1 e 2). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
 
 ## Processos
 
@@ -26,6 +26,7 @@ Visão do código como está na versão 0.1.0 (Fases 0 e 1). A especificação c
 | Pasta | Conteúdo |
 |-------|----------|
 | `src/main/app` | `controller.ts` (orquestração), `protocol.ts`/`protocolPath.ts` (`app://`), `loginItem.ts`, `pages.ts`, `applicationMenu.ts`, `testHooks.ts` |
+| `src/main/character` | `characterStateHost.ts`: roda a máquina de estados com os timers |
 | `src/main/windows` | `characterWindow.ts`, `settingsWindow.ts`, `placement.ts` (funções puras de posição), `displays.ts`, `webPreferences.ts` |
 | `src/main/menus` | `menuFactory.ts` (descrição pura dos menus) e `electronMenu.ts` (conversão) |
 | `src/main/ipc` | `registry.ts` (validação central) e `handlers.ts` (canais do Apêndice C) |
@@ -33,10 +34,10 @@ Visão do código como está na versão 0.1.0 (Fases 0 e 1). A especificação c
 | `src/main/security` | `csp.ts`, `hardening.ts`, `urls.ts` |
 | `src/main/logging` | `logger.ts` (JSON Lines, rotação) e `redact.ts` |
 | `src/preload` | `api.ts` (constrói `window.clipster`) e `index.ts` |
-| `src/renderer/character` | Página do personagem |
+| `src/renderer/character` | Página do personagem: `controller.ts` (interface), `svgRigController.ts` (adaptador do formato svg-rig), `packs/` (pacote de arte em uso) |
 | `src/renderer/settings` | Página de Configurações (React) |
-| `src/shared` | Esquemas Zod, i18n, canais e tipos de IPC, constantes, utilitários puros |
-| `assets/` | SVGs originais (personagem e ícones) |
+| `src/shared` | Esquemas Zod, i18n, canais e tipos de IPC, constantes, utilitários puros; `character/` com os estados e a máquina de estados |
+| `assets/` | SVGs originais. `assets/character/<pacote>/`: `manifest.json`, rig SVG e `poses.css` |
 | `resources/` | PNGs usados em tempo de execução (bandeja, ícone da janela) |
 | `build/` | Ícone usado pelo electron-builder |
 
@@ -58,6 +59,20 @@ Visão do código como está na versão 0.1.0 (Fases 0 e 1). A especificação c
 4. `pointerup` → `character:dragEnd`; após 500 ms a posição é salva (absoluta + relativa à área útil do monitor).
 5. Abaixo de 4 DIP, o gesto é um clique (`character:click`).
 
+### Estados do personagem
+
+```
+evento (clique, arrasto, personalidade, inatividade, IA…)
+  → CharacterStateHost.dispatch (main)
+      → transition(snapshot, evento)   ← função pura, src/shared/character/stateMachine.ts
+      → timer transitório: schedule / cancel / keep
+      → interação do usuário? reinicia o contador de inatividade
+  → pose mudou? webContents.send('character:view', { state, badge })
+  → janela: controller.setView() → data-state / data-badge no #character → poses.css
+```
+
+Eventos ligados hoje: `APP_READY`, `CLICK`, `DRAG_START`/`DRAG_END`, `SUCCESS_FEEDBACK` (troca de personalidade), `INACTIVITY_TIMEOUT`, `PREVIEW` (dev). Os de IA, balão e avisos já existem na máquina e serão ligados nas Fases 3–5.
+
 ### Mudança de configuração
 
 `settings:update` (só janelas de UI) → `SettingsStore.update` valida e grava (debounce, escrita atômica) → `onChange` → `AppController` aplica efeitos (sempre visível, escala, login item, menus) e transmite `settings:changed` às janelas. Mudanças só de posição não são transmitidas.
@@ -74,7 +89,9 @@ Canais em `src/shared/ipc/channels.ts`, payloads em `payloads.ts`, tipos de resp
 |-------|------|---------------------|
 | `settings:get` | invoke | todas |
 | `settings:update` | invoke | configurações (e o futuro balão) |
-| `character:*` | send | personagem |
+| `character:*` (arrasto, clique, menu, clique-através) | send | personagem |
+| `character:getView` | invoke | personagem |
+| `character:view` | evento main → renderer | — |
 | `windows:settings:open`, `windows:hideClipster`, `app:info`, `app:quit` | invoke | todas |
 | `shell:openExternal` | invoke | configurações (e o futuro balão) |
 | `diagnostics:openLogs` | invoke | configurações |

@@ -137,6 +137,7 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
         }
       },
       character: {
+        getView: vi.fn(() => ({ state: 'sleeping' as const, badge: false })),
         dragStart: vi.fn(),
         dragMove: vi.fn(),
         dragEnd: vi.fn(),
@@ -235,6 +236,17 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
     expect(
       await ipcMain.invoke(IpcChannel.windowsOpenSettings, CHARACTER, { section: 'hacks' })
     ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
+  });
+
+  it('a janela do personagem consulta a pose atual; as outras não', async () => {
+    expect(await ipcMain.invoke(IpcChannel.characterGetView, CHARACTER)).toEqual({
+      ok: true,
+      data: { state: 'sleeping', badge: false }
+    });
+    expect(await ipcMain.invoke(IpcChannel.characterGetView, SETTINGS)).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN_SENDER' }
+    });
   });
 
   it('todos os canais registrados estão na lista explícita', () => {

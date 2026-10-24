@@ -2,6 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import type { CharacterEvent } from '../../src/shared/character/stateMachine';
+import type { CharacterView } from '../../src/shared/character/states';
 import type { Settings } from '../../src/shared/schemas/settings';
 
 /**
@@ -41,14 +43,20 @@ export async function waitForPage(app: ElectronApplication, fileName: string): P
   return app.waitForEvent('window', { predicate: (page) => page.url().includes(fileName) });
 }
 
+export interface LaunchOptions {
+  args?: readonly string[];
+  env?: Readonly<Record<string, string>>;
+}
+
 export async function launchClipster(
   userDataDir: string,
-  extraArgs: readonly string[] = []
+  options: LaunchOptions = {}
 ): Promise<LaunchedApp> {
   const app = await electron.launch({
-    args: [PROJECT_ROOT, ...sandboxArgs(), ...extraArgs],
+    args: [PROJECT_ROOT, ...sandboxArgs(), ...(options.args ?? [])],
     env: {
       ...process.env,
+      ...options.env,
       CLIPSTER_E2E: '1',
       CLIPSTER_USER_DATA_DIR: userDataDir
     }
@@ -83,6 +91,19 @@ export function isAlwaysOnTop(app: ElectronApplication): Promise<boolean> {
 
 export function isSettingsWindowOpen(app: ElectronApplication): Promise<boolean> {
   return app.evaluate(() => globalThis.__clipsterTest?.isSettingsWindowOpen() ?? false);
+}
+
+export function characterView(app: ElectronApplication): Promise<CharacterView | null> {
+  return app.evaluate(() => globalThis.__clipsterTest?.characterView() ?? null);
+}
+
+export function dispatchCharacterEvent(
+  app: ElectronApplication,
+  event: CharacterEvent
+): Promise<void> {
+  return app.evaluate((_electron, payload) => {
+    globalThis.__clipsterTest?.dispatchCharacterEvent(payload);
+  }, event);
 }
 
 export function currentSettings(app: ElectronApplication): Promise<Settings | null> {

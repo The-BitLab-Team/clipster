@@ -2,7 +2,17 @@
 export const ptBR = {
   'app.name': 'Clipster',
 
-  'character.label': 'Clipster: clique para conversar, arraste para mover',
+  'character.label': 'Clipster ({state}): clique para conversar, arraste para mover',
+  'character.state.idle': 'à disposição',
+  'character.state.listening': 'ouvindo',
+  'character.state.thinking': 'pensando',
+  'character.state.talking': 'falando',
+  'character.state.happy': 'contente',
+  'character.state.confused': 'confuso',
+  'character.state.sleeping': 'dormindo',
+  'character.state.error': 'com um problema',
+  'character.state.notification': 'com um aviso',
+  'character.state.dragging': 'sendo arrastado',
 
   'menu.open': 'Abrir Clipster',
   'menu.talk': 'Conversar com o Clipster',
@@ -15,6 +25,7 @@ export const ptBR = {
   'menu.show': 'Mostrar Clipster',
   'menu.hideShort': 'Esconder',
   'menu.quit': 'Sair',
+  'menu.previewState': 'Pré-visualizar estado (dev)',
   'tray.tooltip': 'Clipster',
 
   'personality.helpful.name': 'Prestativo',
@@ -47,6 +58,12 @@ export const ptBR = {
   'settings.general.alwaysOnTop': 'Manter o Clipster sobre as outras janelas',
   'settings.general.quietMode': 'Modo silencioso',
   'settings.general.quietMode.hint': 'Suprime avisos que não sejam críticos.',
+  'settings.general.sleepAfter': 'Dormir depois de ficar parado',
+  'settings.general.sleepAfter.hint': 'O Clipster cochila quando ninguém interage com ele.',
+  'settings.general.sleepAfter.5': '5 minutos',
+  'settings.general.sleepAfter.10': '10 minutos',
+  'settings.general.sleepAfter.30': '30 minutos',
+  'settings.general.sleepAfter.0': 'Nunca',
 
   'settings.ai.placeholder':
     'A conexão com uma IA chega em uma próxima versão. Por enquanto, nada sai do seu computador.',

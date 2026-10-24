@@ -1,3 +1,4 @@
+import type { CharacterView } from '../character/states';
 import type { Settings, SettingsPatch, SettingsSection } from '../schemas/settings';
 import type { IpcChannel } from './channels';
 import type { DragMovePayload, LogLevel } from './payloads';
@@ -37,6 +38,7 @@ export type Unsubscribe = () => void;
 export interface IpcInvokeResponses {
   [IpcChannel.settingsGet]: Settings;
   [IpcChannel.settingsUpdate]: Settings;
+  [IpcChannel.characterGetView]: CharacterView;
   [IpcChannel.windowsOpenSettings]: null;
   [IpcChannel.windowsHideClipster]: null;
   [IpcChannel.appInfo]: AppInfo;
@@ -49,6 +51,7 @@ export interface IpcInvokeResponses {
 export interface IpcEventPayloads {
   [IpcChannel.settingsChanged]: Settings;
   [IpcChannel.windowsSettingsNavigate]: SettingsSection;
+  [IpcChannel.characterView]: CharacterView;
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeResponses;
@@ -62,6 +65,8 @@ export interface ClipsterApi {
     onChange(listener: (settings: Settings) => void): Unsubscribe;
   };
   character: {
+    getView(): Promise<IpcResult<CharacterView>>;
+    onView(listener: (view: CharacterView) => void): Unsubscribe;
     dragStart(): void;
     dragMove(delta: DragMovePayload): void;
     dragEnd(): void;

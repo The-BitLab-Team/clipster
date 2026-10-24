@@ -1,3 +1,4 @@
+import { CHARACTER_STATES, type CharacterState } from '../../shared/character/states';
 import type { PersonalityId } from '../../shared/schemas/settings';
 import { createTranslator, type Locale } from '../../shared/i18n';
 
@@ -17,7 +18,8 @@ export type MenuCommand =
   | 'openSettings'
   | 'toggleVisibility'
   | 'hide'
-  | 'quit';
+  | 'quit'
+  | `previewState:${CharacterState}`;
 
 export const MENU_COMMANDS: readonly MenuCommand[] = [
   'open',
@@ -29,7 +31,8 @@ export const MENU_COMMANDS: readonly MenuCommand[] = [
   'openSettings',
   'toggleVisibility',
   'hide',
-  'quit'
+  'quit',
+  ...CHARACTER_STATES.map((state): MenuCommand => `previewState:${state}`)
 ];
 
 export type MenuItemSpec =
@@ -47,6 +50,8 @@ export interface MenuState {
   characterVisible: boolean;
   /** O balão de conversa só existe a partir da Fase 3. */
   chatAvailable: boolean;
+  /** Ferramentas de desenvolvimento (pré-visualizar estados). Nunca no app instalado. */
+  devTools: boolean;
 }
 
 function personalitySubmenu(state: MenuState): MenuItemSpec {
@@ -71,6 +76,22 @@ function personalitySubmenu(state: MenuState): MenuItemSpec {
         checked: state.personality === 'witty'
       }
     ]
+  };
+}
+
+function previewSubmenu(state: MenuState): MenuItemSpec {
+  const t = createTranslator(state.locale);
+  return {
+    kind: 'submenu',
+    id: 'preview-state',
+    label: t('menu.previewState'),
+    items: CHARACTER_STATES.map((characterState) => ({
+      kind: 'command',
+      id: `preview-${characterState}`,
+      label: characterState,
+      command: `previewState:${characterState}`,
+      enabled: true
+    }))
   };
 }
 
@@ -147,6 +168,9 @@ export function buildCharacterContextMenu(state: MenuState): MenuItemSpec[] {
       enabled: true
     },
     { kind: 'command', id: 'hide', label: t('menu.hideShort'), command: 'hide', enabled: true },
+    ...(state.devTools
+      ? [{ kind: 'separator', id: 'sep-dev' } as const, previewSubmenu(state)]
+      : []),
     { kind: 'command', id: 'quit', label: t('menu.quit'), command: 'quit', enabled: true }
   ];
 }

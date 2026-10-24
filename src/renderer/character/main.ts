@@ -1,20 +1,19 @@
 import './character.css';
-import idleSvg from '../../../assets/character/placeholder/idle.svg?raw';
-import {
-  BLINK_INTERVAL_MS,
-  DRAG_THRESHOLD_DIP,
-  POKE_ANIMATION_MS
-} from '../../shared/constants/ui';
+import { DRAG_THRESHOLD_DIP } from '../../shared/constants/ui';
+import type { CharacterView } from '../../shared/character/states';
 import { createTranslator, resolveLocale } from '../../shared/i18n';
 import type { AppInfo } from '../../shared/ipc/api';
 import type { Settings } from '../../shared/schemas/settings';
-import { resolveMotion, type MotionLevel } from '../../shared/ui/motion';
+import { resolveMotion } from '../../shared/ui/motion';
 import { installErrorReporting } from '../lib/errorReporting';
+import type { CharacterController } from './controller';
+import { placeholderPack } from './packs/placeholder';
+import { createSvgRigController } from './svgRigController';
 
 /**
- * Janela do personagem (Fase 1). Sem React: só DOM, CSS e poucos listeners.
- * Responsável por: desenhar o placeholder, arrasto manual, clique, menu de contexto,
- * clique através das áreas transparentes e uma piscada ocasional.
+ * Janela do personagem. Sem React: DOM, CSS e poucos listeners.
+ * Desenha o estado que o main decide (SPEC §6.1), cuida do arrasto manual, do clique,
+ * do menu de contexto e do clique através das áreas transparentes.
  */
 
 installErrorReporting('character');
@@ -24,76 +23,44 @@ const root = document.getElementById('character');
 if (root === null) throw new Error('Elemento #character não encontrado.');
 const character: HTMLElement = root;
 
-// ── Desenho ─────────────────────────────────────────────────────────────
-
-function mountSvg(target: HTMLElement, markup: string): void {
-  const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
-  const svg = parsed.documentElement;
-  if (svg.nodeName !== 'svg') throw new Error('Asset do personagem inválido.');
-  target.replaceChildren(document.importNode(svg, true));
-}
-
-mountSvg(character, idleSvg);
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const controller: CharacterController = createSvgRigController(
+  character,
+  placeholderPack,
+  resolveMotion('system', reducedMotionQuery.matches)
+);
 
 function isOverFigure(clientX: number, clientY: number): boolean {
   const element = document.elementFromPoint(clientX, clientY);
   return element?.closest('[data-hit]') != null;
 }
 
-// ── Preferências (idioma e movimento) ───────────────────────────────────
+// ── Preferências, estado e rótulo acessível ────────────────────────────────
 
 let settings: Settings | null = null;
 let info: AppInfo | null = null;
-let motion: MotionLevel = 'full';
-const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+let view: CharacterView = { state: controller.state, badge: false };
 
-function applyPreferences(): void {
+function render(): void {
+  controller.setView(view);
   if (settings === null || info === null) return;
   const locale = resolveLocale(settings.general.language, info.systemLanguages);
   const t = createTranslator(locale);
   document.documentElement.lang = locale;
-  character.setAttribute('aria-label', t('character.label'));
-
-  motion = resolveMotion(settings.appearance.animations, reducedMotionQuery.matches);
-  document.documentElement.dataset.motion = motion;
-  scheduleBlink();
+  character.setAttribute(
+    'aria-label',
+    t('character.label', { state: t(`character.state.${controller.state}`) })
+  );
 }
 
-reducedMotionQuery.addEventListener('change', applyPreferences);
-
-// ── Piscada ocasional (um único timer, pausado quando oculto) ───────────
-
-let blinkTimer: ReturnType<typeof setTimeout> | null = null;
-
-function scheduleBlink(): void {
-  if (blinkTimer !== null) clearTimeout(blinkTimer);
-  blinkTimer = null;
-  if (motion !== 'full' || document.hidden) return;
-  const delay =
-    BLINK_INTERVAL_MS.min + Math.random() * (BLINK_INTERVAL_MS.max - BLINK_INTERVAL_MS.min);
-  blinkTimer = setTimeout(() => {
-    character.classList.add('is-blinking');
-    setTimeout(() => {
-      character.classList.remove('is-blinking');
-    }, 200);
-    scheduleBlink();
-  }, delay);
+function applyMotion(): void {
+  if (settings === null) return;
+  controller.setMotion(resolveMotion(settings.appearance.animations, reducedMotionQuery.matches));
 }
 
-document.addEventListener('visibilitychange', scheduleBlink);
+reducedMotionQuery.addEventListener('change', applyMotion);
 
-function poke(): void {
-  if (motion === 'off') return;
-  character.classList.remove('is-poked');
-  // Força reflow para reiniciar a animação se o usuário clicar várias vezes.
-  character.getBoundingClientRect();
-  character.classList.add('is-poked');
-  setTimeout(() => {
-    character.classList.remove('is-poked');
-  }, POKE_ANIMATION_MS);
-}
-
-// ── Clique através das áreas transparentes (SPEC §19.3) ─────────────────
+// ── Clique através das áreas transparentes (SPEC §19.3) ────────────────────
 
 let ignoringMouse = true; // o main cria a janela já ignorando o mouse (Windows/macOS)
 
@@ -103,7 +70,7 @@ function setIgnoreMouse(ignore: boolean): void {
   api.character.setClickThrough(ignore);
 }
 
-// ── Arrasto manual e clique (SPEC §19.2) ────────────────────────────────
+// ── Arrasto manual e clique (SPEC §19.2) ───────────────────────────────────
 
 interface PointerSession {
   pointerId: number;
@@ -124,6 +91,11 @@ function flushDrag(): void {
   }
 }
 
+function activate(): void {
+  controller.poke();
+  api.character.click();
+}
+
 function endSession(completed: boolean): void {
   const current = session;
   if (current === null) return;
@@ -137,8 +109,7 @@ function endSession(completed: boolean): void {
     api.character.dragEnd();
     character.classList.remove('is-dragging');
   } else if (completed) {
-    poke();
-    api.character.click();
+    activate();
   }
 }
 
@@ -200,31 +171,42 @@ character.addEventListener('contextmenu', (event) => {
 character.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
-    poke();
-    api.character.click();
+    activate();
   } else if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
     event.preventDefault();
     api.character.openContextMenu();
   }
 });
 
-// ── Inicialização ────────────────────────────────────────────────────────
+// ── Inicialização ──────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
-  const [settingsResult, infoResult] = await Promise.all([api.settings.get(), api.app.info()]);
-  if (!settingsResult.ok || !infoResult.ok) {
+  // Inscreve antes de consultar, para não perder uma mudança que aconteça no meio.
+  api.character.onView((next) => {
+    view = next;
+    render();
+  });
+  api.settings.onChange((next) => {
+    settings = next;
+    applyMotion();
+    render();
+  });
+
+  const [settingsResult, infoResult, viewResult] = await Promise.all([
+    api.settings.get(),
+    api.app.info(),
+    api.character.getView()
+  ]);
+  if (!settingsResult.ok || !infoResult.ok || !viewResult.ok) {
     api.log.write('error', 'character.init_failed');
     return;
   }
   settings = settingsResult.data;
   info = infoResult.data;
+  view = viewResult.data;
   if (!info.capabilities.clickThrough) ignoringMouse = false;
-  applyPreferences();
-
-  api.settings.onChange((next) => {
-    settings = next;
-    applyPreferences();
-  });
+  applyMotion();
+  render();
 }
 
 void init();

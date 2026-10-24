@@ -10,6 +10,7 @@ import {
   SettingsPatchSchema,
   type DragMovePayload
 } from '../../shared/ipc/payloads';
+import type { CharacterView } from '../../shared/character/states';
 import type { Settings, SettingsPatch, SettingsSection } from '../../shared/schemas/settings';
 import type { Logger } from '../logging/logger';
 import { isSafeExternalUrl } from '../security/urls';
@@ -29,6 +30,7 @@ export interface IpcHandlerDeps {
     update: (patch: SettingsPatch) => Settings;
   };
   character: {
+    getView: () => CharacterView;
     dragStart: () => void;
     dragMove: (delta: DragMovePayload) => void;
     dragEnd: () => void;
@@ -66,6 +68,12 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       }
       return deps.settings.update(patch);
     }
+  );
+
+  registry.handle(
+    IpcChannel.characterGetView,
+    { schema: NoPayloadSchema, roles: CHARACTER_ONLY },
+    () => deps.character.getView()
   );
 
   registry.on(

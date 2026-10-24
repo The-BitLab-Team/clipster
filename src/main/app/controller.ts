@@ -22,6 +22,8 @@ import { TrayController } from '../tray/trayController';
 import { CharacterWindow } from '../windows/characterWindow';
 import { SettingsWindowManager } from '../windows/settingsWindow';
 import { applyLaunchAtLogin } from './loginItem';
+import { CharacterStateHost } from '../character/characterStateHost';
+import { isCharacterState, type CharacterState } from '../../shared/character/states';
 import { pageUrl } from './pages';
 import type { TestHooks } from './testHooks';
 
@@ -42,6 +44,10 @@ export interface AppControllerOptions {
   appIconPath: string;
   logsDir: string;
   capabilities: AppCapabilities;
+  /** Ferramentas de desenvolvimento (pré-visualizar estados). Falso no app instalado. */
+  devTools: boolean;
+  /** Só para E2E: substitui "Dormir após inatividade" por um tempo curto, em ms. */
+  sleepAfterMsOverride: number | null;
 }
 
 export class AppController {
@@ -52,8 +58,20 @@ export class AppController {
   private readonly registry: IpcRegistry;
   private displayTimer: ReturnType<typeof setTimeout> | null = null;
   private quitting = false;
+  private readonly characterState: CharacterStateHost;
 
   constructor(private readonly options: AppControllerOptions) {
+    this.characterState = new CharacterStateHost({
+      inactivityMs: () => this.inactivityMs(),
+      onView: (view) => {
+        const win = this.character?.window;
+        if (win !== undefined && !win.isDestroyed()) {
+          win.webContents.send(IpcChannel.characterView, view);
+        }
+      },
+      logger: options.logger.child('character-state')
+    });
+
     const devServerOrigin =
       options.devServerUrl === null ? null : new URL(options.devServerUrl).origin;
 
@@ -103,6 +121,7 @@ export class AppController {
     );
 
     const { loadInfo } = this.options.store;
+    this.characterState.dispatch({ type: 'APP_READY', firstRun: loadInfo.createdFresh });
     if (loadInfo.createdFresh) this.options.logger.info('app.first_run');
     if (loadInfo.recovered) {
       this.options.logger.warn('app.settings_recovered', { issues: loadInfo.issues });
@@ -114,6 +133,7 @@ export class AppController {
     if (this.quitting) return;
     this.quitting = true;
     if (this.displayTimer !== null) clearTimeout(this.displayTimer);
+    this.characterState.dispose();
     this.character?.commitPositionNow();
     this.options.store.flushSync();
     this.tray?.destroy();
@@ -165,7 +185,16 @@ export class AppController {
       case 'quit':
         this.quit();
         return;
+      default:
+        this.previewState(command);
     }
+  }
+
+  /** Pré-visualização de estados (submenu de desenvolvimento). */
+  private previewState(command: `previewState:${CharacterState}`): void {
+    if (!this.options.devTools) return;
+    const state = command.slice('previewState:'.length);
+    if (isCharacterState(state)) this.characterState.dispatch({ type: 'PREVIEW', state });
   }
 
   showCharacter(): void {
@@ -217,7 +246,11 @@ export class AppController {
       isAlwaysOnTop: () => this.character?.window.isAlwaysOnTop() ?? false,
       isSettingsWindowOpen: () => this.settingsWindow.browserWindow !== null,
       settings: () => this.options.store.get(),
-      flushSettings: () => this.options.store.flush()
+      flushSettings: () => this.options.store.flush(),
+      characterView: () => this.characterState.view,
+      dispatchCharacterEvent: (event) => {
+        this.characterState.dispatch(event);
+      }
     };
   }
 
@@ -242,7 +275,8 @@ export class AppController {
       alwaysOnTop: settings.general.alwaysOnTop,
       quietMode: settings.general.quietMode,
       characterVisible: this.character?.isVisible() ?? false,
-      chatAvailable: false
+      chatAvailable: false,
+      devTools: this.options.devTools
     };
   }
 
@@ -309,13 +343,20 @@ export class AppController {
         update: (patch) => this.options.store.update(patch)
       },
       character: {
-        dragStart: () => this.character?.dragStart(),
+        getView: () => this.characterState.view,
+        dragStart: () => {
+          this.character?.dragStart();
+          this.characterState.dispatch({ type: 'DRAG_START' });
+        },
         dragMove: ({ dx, dy }) => this.character?.dragMove(dx, dy),
-        dragEnd: () => this.character?.dragEnd(),
+        dragEnd: () => {
+          this.character?.dragEnd();
+          this.characterState.dispatch({ type: 'DRAG_END' });
+        },
         setClickThrough: (ignore) => this.character?.setClickThrough(ignore),
         click: () => {
-          // Fase 3: abrir o balão de conversa.
-          this.options.logger.debug('character.click');
+          // Fase 3: além disso, abrir o balão de conversa.
+          this.characterState.dispatch({ type: 'CLICK' });
         },
         openContextMenu: () => this.character?.popupMenu(this.buildMenu('context'))
       },
@@ -353,6 +394,13 @@ export class AppController {
         this.options.logger
       );
     }
+    if (next.general.sleepAfterMinutes !== previous.general.sleepAfterMinutes) {
+      this.characterState.refreshInactivity();
+    }
+    if (next.personality !== previous.personality) {
+      // Feedback visual da troca de personalidade (SPEC §7.4).
+      this.characterState.dispatch({ type: 'SUCCESS_FEEDBACK' });
+    }
 
     const menuRelevant =
       next.general.language !== previous.general.language ||
@@ -377,6 +425,12 @@ export class AppController {
         win.webContents.send(IpcChannel.settingsChanged, settings);
       }
     }
+  }
+
+  private inactivityMs(): number | null {
+    if (this.options.sleepAfterMsOverride !== null) return this.options.sleepAfterMsOverride;
+    const minutes = this.options.store.get().general.sleepAfterMinutes;
+    return minutes === 0 ? null : minutes * 60_000;
   }
 
   private scheduleDisplayCheck(): void {

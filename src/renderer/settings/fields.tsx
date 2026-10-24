@@ -56,6 +56,7 @@ export interface Option<T extends string> {
 interface SelectFieldProps<T extends string> {
   id: string;
   label: string;
+  hint?: string | undefined;
   value: T;
   options: readonly Option<T>[];
   onChange: (value: T) => void;
@@ -64,18 +65,28 @@ interface SelectFieldProps<T extends string> {
 export function SelectField<T extends string>({
   id,
   label,
+  hint,
   value,
   options,
   onChange
 }: SelectFieldProps<T>) {
+  const hintId = hint === undefined ? undefined : `${id}-hint`;
   return (
     <div className="field field--row">
-      <label htmlFor={id} className="field__label">
-        {label}
-      </label>
+      <div className="field__text">
+        <label htmlFor={id} className="field__label">
+          {label}
+        </label>
+        {hint !== undefined && (
+          <p id={hintId} className="field__hint">
+            {hint}
+          </p>
+        )}
+      </div>
       <select
         id={id}
         className="select"
+        aria-describedby={hintId}
         value={value}
         onChange={(event) => {
           const selected = options.find((option) => option.value === event.currentTarget.value);

@@ -12,7 +12,7 @@ Um pequeno companheiro de desktop, animado, com personalidade e foco em privacid
 
 ## Estado atual
 
-Versão **0.1.0**: Fases 0 e 1 do [roadmap](SPEC.md#34-roadmap) concluídas.
+Versão **0.2.0**: Fases 0, 1 e 2 do [roadmap](SPEC.md#34-roadmap) concluídas.
 
 | Recurso | Situação |
 |---------|----------|
@@ -23,10 +23,22 @@ Versão **0.1.0**: Fases 0 e 1 do [roadmap](SPEC.md#34-roadmap) concluídas.
 | Configurações: idioma, sempre visível, iniciar escondido, iniciar com o sistema, personalidade, tamanho, animações, tema | ✅ |
 | Interface em português e inglês, seguindo o idioma do sistema | ✅ |
 | Uma única instância; fechar ≠ sair | ✅ |
-| Estados animados do personagem (pensando, falando, dormindo…) | Fase 2 |
+| Estados animados do personagem (10 poses, máquina de estados) | ✅ |
+| Cochila depois de um tempo sem interação; acorda confuso ao ser clicado | ✅ |
+| Animações respeitam "Reduzir movimento" e a opção Animações | ✅ |
 | Balão de conversa, modo Demo e personalidades em ação | Fase 3 |
 | IA de verdade (Ollama/LM Studio, Claude, OpenAI) | Fase 4 |
 | Ferramentas com permissões | Fase 5 |
+
+## Estados do personagem
+
+<p align="center">
+  <img src="docs/images/states.png" alt="Os 10 estados do Clipster sobre fundo escuro e claro: à disposição, ouvindo, pensando, falando, contente, confuso, dormindo, com problema, com aviso e sendo arrastado" width="760">
+</p>
+
+Quem decide o estado é uma máquina de estados no main process (`src/shared/character/stateMachine.ts`); a janela só desenha. Hoje você já vê, no uso normal: **contente** na primeira execução e ao trocar de personalidade, **sendo arrastado** durante o arrasto, **dormindo** depois do tempo configurado em Configurações › Geral, e **confuso** ao clicar nele dormindo. Os outros estados (pensando, falando, erro, aviso) entram em uso com o balão de conversa e a IA, nas Fases 3 e 4.
+
+**Para ver todos agora:** em `npm run dev`, clique com o botão direito no personagem › **Pré-visualizar estado (dev)**. Cada estado fica 4 segundos e volta sozinho. Esse submenu não existe no app instalado.
 
 ## Requisitos
 
@@ -86,7 +98,8 @@ npm run package:win   # Windows (rodar no Windows)
 
 - **Main process** (`src/main`): janelas, bandeja, menus, configurações, IPC, segurança. É a única fonte da verdade das configurações.
 - **Preload** (`src/preload`): expõe só `window.clipster`, uma API mínima e tipada. Nunca expõe o `ipcRenderer`.
-- **Renderers** (`src/renderer`): o personagem (TypeScript puro, sem React por quadro) e as Configurações (React). Sem Node, sem acesso a arquivos, sem rede.
+- **Máquina de estados** (`src/shared/character`): função pura que decide a pose do personagem; roda no main com dois timers no máximo (transitório e inatividade).
+- **Renderers** (`src/renderer`): o personagem (TypeScript puro, sem React por quadro; a arte é um pacote trocável em `assets/character/`) e as Configurações (React). Sem Node, sem acesso a arquivos, sem rede.
 - **Shared** (`src/shared`): esquemas Zod, i18n, contratos de IPC, constantes.
 
 Detalhes em [`docs/architecture.md`](docs/architecture.md). Decisões registradas em [`docs/decisions.md`](docs/decisions.md).
@@ -112,7 +125,7 @@ Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lug
 
 ## Roadmap
 
-Fases 2 a 6 em [`SPEC.md` §34](SPEC.md#34-roadmap). Próxima: **Fase 2 — personagem** (estados animados, máquina de estados, sono por inatividade).
+Fases 3 a 6 em [`SPEC.md` §34](SPEC.md#34-roadmap). Próxima: **Fase 3 — conversa** (balão de conversa, modo Demo, personalidades em ação, primeira execução).
 
 ## Licença
 

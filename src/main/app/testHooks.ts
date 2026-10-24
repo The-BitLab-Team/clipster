@@ -1,3 +1,5 @@
+import type { CharacterEvent } from '../../shared/character/stateMachine';
+import type { CharacterView } from '../../shared/character/states';
 import type { Settings } from '../../shared/schemas/settings';
 
 /**
@@ -13,6 +15,9 @@ export interface TestHooks {
   isSettingsWindowOpen: () => boolean;
   settings: () => Settings;
   flushSettings: () => Promise<void>;
+  characterView: () => CharacterView;
+  /** Simula eventos que só existirão em fases futuras (IA, avisos). */
+  dispatchCharacterEvent: (event: CharacterEvent) => void;
 }
 
 declare global {

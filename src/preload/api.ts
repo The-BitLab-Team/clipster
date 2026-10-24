@@ -51,6 +51,8 @@ export function createClipsterApi(ipc: IpcRendererLike): ClipsterApi {
       onChange: (listener) => subscribe(IpcChannel.settingsChanged, listener)
     },
     character: {
+      getView: () => invoke(IpcChannel.characterGetView),
+      onView: (listener) => subscribe(IpcChannel.characterView, listener),
       dragStart: () => {
         ipc.send(IpcChannel.characterDragStart);
       },

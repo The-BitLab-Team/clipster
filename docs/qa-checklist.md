@@ -15,6 +15,22 @@ Itens que os testes automáticos não conseguem verificar num desktop real (SPEC
 - [ ] Ele pisca de vez em quando; com Configurações › Aparência › Animações = "Desligadas", não pisca.
 - [ ] Com "Reduzir movimento" do Windows ligado e Animações = "Seguir o sistema", não há balanço.
 
+## Estados do personagem (Fase 2)
+
+Em `npm run dev`, use o clique direito › **Pré-visualizar estado (dev)** para ver cada estado (dura 4 s).
+
+- [ ] Os 10 estados aparecem e são distinguíveis: à disposição, ouvindo, pensando (reticências), falando (boca mexendo), contente (brilhos), confuso ("?"), dormindo ("z"), problema (olhos em X, visor vermelho), aviso ("!", visor âmbar), sendo arrastado.
+- [ ] Os acessórios ("…", "z", "?", "!", brilhos) aparecem bem tanto num papel de parede **escuro** quanto num **claro**.
+- [ ] As transições entre poses são suaves (com animações ligadas) e instantâneas com Animações = "Reduzidas" ou "Desligadas".
+- [ ] Primeira execução (apague `%APPDATA%\Clipster (dev)` antes): começa contente e volta ao normal.
+- [ ] Trocar a personalidade (bandeja ou Configurações) → contente por um instante.
+- [ ] Durante o arrasto → pose "sendo arrastado"; ao soltar, volta ao normal.
+- [ ] Configurações › Geral › "Dormir depois de" = 5 minutos → depois de 5 min sem mexer no Clipster, ele dorme.
+- [ ] Clicar nele dormindo → fica confuso e depois volta ao normal.
+- [ ] Dormindo, os "z" sobem algumas vezes e param (sem animação eterna). Gerenciador de Tarefas: CPU ≈ 0%.
+- [ ] Com o leitor de tela (Narrador), o personagem é anunciado com o estado ("Clipster (dormindo)…").
+- [ ] No app instalado, o submenu "Pré-visualizar estado (dev)" **não** aparece.
+
 ## Arrasto e posição
 
 - [ ] Arrastar move o personagem suavemente, sem "pular".

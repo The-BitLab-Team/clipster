@@ -4,7 +4,17 @@ import type { ptBR } from './pt-BR';
 export const en = {
   'app.name': 'Clipster',
 
-  'character.label': 'Clipster: click to talk, drag to move',
+  'character.label': 'Clipster ({state}): click to talk, drag to move',
+  'character.state.idle': 'ready',
+  'character.state.listening': 'listening',
+  'character.state.thinking': 'thinking',
+  'character.state.talking': 'talking',
+  'character.state.happy': 'happy',
+  'character.state.confused': 'confused',
+  'character.state.sleeping': 'sleeping',
+  'character.state.error': 'having a problem',
+  'character.state.notification': 'has a notice',
+  'character.state.dragging': 'being moved',
 
   'menu.open': 'Open Clipster',
   'menu.talk': 'Talk to Clipster',
@@ -17,6 +27,7 @@ export const en = {
   'menu.show': 'Show Clipster',
   'menu.hideShort': 'Hide',
   'menu.quit': 'Quit',
+  'menu.previewState': 'Preview state (dev)',
   'tray.tooltip': 'Clipster',
 
   'personality.helpful.name': 'Helpful',
@@ -49,6 +60,12 @@ export const en = {
   'settings.general.alwaysOnTop': 'Keep Clipster above other windows',
   'settings.general.quietMode': 'Quiet Mode',
   'settings.general.quietMode.hint': 'Suppresses non-critical notices.',
+  'settings.general.sleepAfter': 'Sleep after being idle',
+  'settings.general.sleepAfter.hint': 'Clipster naps when nobody interacts with it.',
+  'settings.general.sleepAfter.5': '5 minutes',
+  'settings.general.sleepAfter.10': '10 minutes',
+  'settings.general.sleepAfter.30': '30 minutes',
+  'settings.general.sleepAfter.0': 'Never',
 
   'settings.ai.placeholder':
     'Connecting to an AI is coming in a future version. For now, nothing leaves your computer.',

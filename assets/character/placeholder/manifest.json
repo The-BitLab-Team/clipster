@@ -1,9 +1,21 @@
 {
   "id": "placeholder",
-  "format": "svg",
+  "name": "Clipster (placeholder)",
+  "format": "svg-rig",
   "size": { "width": 160, "height": 160 },
+  "rig": "clipster.svg",
+  "styles": "poses.css",
   "states": {
-    "idle": { "src": "idle.svg", "loop": true }
+    "idle": { "blink": true },
+    "listening": { "blink": true },
+    "thinking": { "blink": false },
+    "talking": { "blink": true },
+    "happy": { "blink": false },
+    "confused": { "blink": false },
+    "sleeping": { "blink": false },
+    "error": { "blink": false },
+    "notification": { "blink": false },
+    "dragging": { "blink": false }
   },
   "fallbackState": "idle"
 }

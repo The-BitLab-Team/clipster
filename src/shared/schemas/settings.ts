@@ -119,6 +119,7 @@ export const SettingsPatchSchema = z.strictObject({
 
 export type LanguagePreference = z.infer<typeof LanguagePreferenceSchema>;
 export type PersonalityId = z.infer<typeof PersonalityIdSchema>;
+export type SleepAfterMinutes = z.infer<typeof SleepAfterMinutesSchema>;
 export type AnimationPreference = z.infer<typeof AnimationPreferenceSchema>;
 export type ThemePreference = z.infer<typeof ThemePreferenceSchema>;
 export type SettingsSection = z.infer<typeof SettingsSectionSchema>;

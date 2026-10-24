@@ -1,0 +1,383 @@
+/*
+ * Poses do pacote "placeholder" (formato svg-rig, SPEC §5.4).
+ * O estado vem em [data-state] (elemento #character) e o nível de movimento em
+ * [data-motion] (<html>). Animações e transições só existem com data-motion='full'.
+ * Regra de desempenho (SPEC §25): poses de repouso (idle, sleeping, notification) só
+ * usam animações com número finito de repetições; loops infinitos ficam restritos a
+ * estados que duram pouco (thinking, talking).
+ */
+
+/* ── Partes ─────────────────────────────────────────────────────────────── */
+
+.clp-pose,
+.clp-head,
+.clp-handle,
+.clp-eyes,
+.clp-eye,
+.clp-mouth,
+.clp-prop,
+.clp-z,
+.clp-dot,
+.clp-sparkle,
+.clp-alert-ring,
+.clp-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.clp-pose,
+.clp-head,
+.clp-handle {
+  transform-origin: 50% 100%;
+}
+
+.clp-z {
+  transform-origin: 0% 100%;
+}
+
+/* Por padrão: olhos abertos e sorriso; variações e acessórios escondidos. */
+.clp-eyes,
+.clp-mouth,
+.clp-prop,
+.clp-badge {
+  opacity: 0;
+}
+
+.clp-eyes--open,
+.clp-mouth--smile,
+[data-badge='true'] .clp-badge {
+  opacity: 1;
+}
+
+[data-motion='full'] .clp-pose,
+[data-motion='full'] .clp-handle,
+[data-motion='full'] .clp-eyes,
+[data-motion='full'] .clp-eye,
+[data-motion='full'] .clp-mouth,
+[data-motion='full'] .clp-prop,
+[data-motion='full'] .clp-badge,
+[data-motion='full'] .clp-visor {
+  transition:
+    transform 220ms ease,
+    opacity 160ms ease,
+    stroke 160ms ease;
+}
+
+/* ── listening: atento ao que o usuário digita ──────────────────────────── */
+
+[data-state='listening'] .clp-handle--left {
+  transform: rotate(-6deg);
+}
+[data-state='listening'] .clp-handle--right {
+  transform: rotate(6deg);
+}
+[data-state='listening'] .clp-eyes--open {
+  transform: scale(1.1);
+}
+
+/* ── thinking: olhar para cima, reticências pulsando ────────────────────── */
+
+[data-state='thinking'] .clp-eyes--open {
+  transform: translate(3px, -3px) scaleY(0.85);
+}
+[data-state='thinking'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='thinking'] .clp-mouth--flat {
+  opacity: 1;
+  transform: translateX(3px) scaleX(0.8);
+}
+[data-state='thinking'] .clp-handle--right {
+  transform: rotate(8deg);
+}
+[data-state='thinking'] .clp-prop--dots {
+  opacity: 1;
+}
+[data-motion='full'] [data-state='thinking'] .clp-dot {
+  animation: clp-dot 1.2s ease-in-out infinite;
+}
+[data-motion='full'] [data-state='thinking'] .clp-dot--2 {
+  animation-delay: 0.2s;
+}
+[data-motion='full'] [data-state='thinking'] .clp-dot--3 {
+  animation-delay: 0.4s;
+}
+
+/* ── talking: boca abrindo e fechando ───────────────────────────────────── */
+
+[data-state='talking'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='talking'] .clp-mouth--open {
+  opacity: 1;
+}
+[data-state='talking'] .clp-handle--left {
+  transform: rotate(-4deg);
+}
+[data-state='talking'] .clp-handle--right {
+  transform: rotate(4deg);
+}
+[data-motion='full'] [data-state='talking'] .clp-mouth--open {
+  animation: clp-talk 0.3s ease-in-out infinite alternate;
+}
+
+/* ── happy: olhos sorrindo, alças para cima, um pulinho ─────────────────── */
+
+[data-state='happy'] .clp-eyes--open,
+[data-state='happy'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='happy'] .clp-eyes--happy,
+[data-state='happy'] .clp-mouth--grin,
+[data-state='happy'] .clp-prop--sparkles {
+  opacity: 1;
+}
+[data-state='happy'] .clp-handle--left {
+  transform: rotate(-14deg);
+}
+[data-state='happy'] .clp-handle--right {
+  transform: rotate(14deg);
+}
+[data-motion='full'] [data-state='happy'] .clp-pose {
+  animation: clp-hop 480ms ease-out 1;
+}
+[data-motion='full'] [data-state='happy'] .clp-sparkle {
+  animation: clp-twinkle 700ms ease-out 2;
+}
+
+/* ── confused: cabeça inclinada, um olho apertado, interrogação ─────────── */
+
+[data-state='confused'] .clp-pose {
+  transform: rotate(-5deg);
+}
+[data-state='confused'] .clp-eye--left {
+  transform: scaleY(0.55);
+}
+[data-state='confused'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='confused'] .clp-mouth--flat {
+  opacity: 1;
+  transform: rotate(-10deg);
+}
+[data-state='confused'] .clp-handle--right {
+  transform: rotate(22deg);
+}
+[data-state='confused'] .clp-prop--question {
+  opacity: 1;
+}
+[data-motion='full'] [data-state='confused'] .clp-prop--question {
+  animation: clp-pop 360ms ease-out 1;
+}
+
+/* ── sleeping: olhos fechados, alças caídas, "z" flutuando ──────────────── */
+
+[data-state='sleeping'] .clp-pose {
+  transform: translateY(3px);
+}
+[data-state='sleeping'] .clp-handle--left {
+  transform: rotate(-30deg);
+}
+[data-state='sleeping'] .clp-handle--right {
+  transform: rotate(30deg);
+}
+[data-state='sleeping'] .clp-eyes--open,
+[data-state='sleeping'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='sleeping'] .clp-eyes--closed,
+[data-state='sleeping'] .clp-prop--zzz {
+  opacity: 1;
+}
+[data-state='sleeping'] .clp-mouth--flat {
+  opacity: 1;
+  transform: scaleX(0.55);
+}
+[data-state='sleeping'] .clp-visor {
+  stroke-opacity: 0.25;
+}
+/* Três repetições e para: dormir pode durar horas. */
+[data-motion='full'] [data-state='sleeping'] .clp-z--big {
+  animation: clp-float 3.2s ease-in-out 3 both;
+}
+[data-motion='full'] [data-state='sleeping'] .clp-z--small {
+  animation: clp-float 3.2s ease-in-out 0.8s 3 both;
+}
+
+/* ── error: olhos em X, visor vermelho, uma sacudida ────────────────────── */
+
+[data-state='error'] .clp-eyes--open,
+[data-state='error'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='error'] .clp-eyes--x,
+[data-state='error'] .clp-mouth--frown {
+  opacity: 1;
+}
+[data-state='error'] .clp-visor {
+  stroke: #ff7b72;
+  stroke-opacity: 0.9;
+}
+[data-state='error'] .clp-handle--left {
+  transform: rotate(-10deg);
+}
+[data-state='error'] .clp-handle--right {
+  transform: rotate(10deg);
+}
+[data-motion='full'] [data-state='error'] .clp-pose {
+  animation: clp-shake 320ms ease-in-out 2;
+}
+
+/* ── notification: olhos arregalados, "!" discreto ──────────────────────── */
+
+[data-state='notification'] .clp-eyes--open,
+[data-state='notification'] .clp-badge {
+  opacity: 0;
+}
+[data-state='notification'] .clp-eyes--wide,
+[data-state='notification'] .clp-prop--alert {
+  opacity: 1;
+}
+[data-state='notification'] .clp-visor {
+  stroke: #f2b84b;
+  stroke-opacity: 0.9;
+}
+[data-state='notification'] .clp-handle--left {
+  transform: rotate(-8deg);
+}
+[data-state='notification'] .clp-handle--right {
+  transform: rotate(8deg);
+}
+[data-motion='full'] [data-state='notification'] .clp-prop--alert {
+  animation: clp-pop 360ms ease-out 1;
+}
+[data-motion='full'] [data-state='notification'] .clp-alert-ring {
+  animation: clp-pulse 1.1s ease-in-out 0.4s 3;
+}
+
+/* ── dragging: surpreso, alças abertas ──────────────────────────────────── */
+
+[data-state='dragging'] .clp-eyes--open,
+[data-state='dragging'] .clp-mouth--smile {
+  opacity: 0;
+}
+[data-state='dragging'] .clp-eyes--wide {
+  opacity: 1;
+}
+[data-state='dragging'] .clp-mouth--open {
+  opacity: 1;
+  transform: scale(0.8);
+}
+[data-state='dragging'] .clp-handle--left {
+  transform: rotate(-24deg);
+}
+[data-state='dragging'] .clp-handle--right {
+  transform: rotate(24deg);
+}
+[data-state='dragging'] .clp-pose {
+  transform: scale(1.02, 0.97);
+}
+
+/* ── Animações ──────────────────────────────────────────────────────────── */
+
+@keyframes clp-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes clp-talk {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0.35);
+  }
+}
+
+@keyframes clp-hop {
+  0% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-7px) scale(1.02, 0.98);
+  }
+  70% {
+    transform: translateY(1px) scale(1.01, 0.99);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes clp-twinkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes clp-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  70% {
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes clp-float {
+  0% {
+    opacity: 0;
+    transform: translate(-6px, 8px) scale(0.7);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes clp-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes clp-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}

@@ -70,3 +70,36 @@ Evento novo (main → Configurações) para abrir uma seção específica quando
 
 ### 2026-10-24 · Callbacks como propriedades nas interfaces
 Interfaces com funções usam `nome: (x) => y` em vez de método (`nome(x): y`), para evitar problemas de `this` (regra `unbound-method`) e permitir dublês nos testes.
+
+---
+
+## Fase 2 — personagem
+
+### 2026-10-24 · Formato de arte `svg-rig` (um SVG + CSS de poses)
+Um único SVG com partes nomeadas (alças, visor, cinco tipos de olhos, cinco bocas, acessórios) e um `poses.css` que as mostra, esconde e move conforme `data-state`. **Motivo:** trocar de pose é só mudar um atributo; transições suaves entre poses saem de graça; um arquivo em vez de dez cópias do personagem. **Descartado:** um SVG por estado (como no exemplo original da SPEC), por duplicar a arte e não permitir transições.
+
+### 2026-10-24 · `zod/mini` para validar o manifesto dentro da janela
+A SPEC pede validação com Zod ao carregar. O `zod` completo ficaria pesado na janela do personagem; o `zod/mini` (API funcional, do próprio Zod 4) resolve. O mesmo esquema é usado no teste do pacote.
+
+### 2026-10-24 · Máquina de estados pura em `shared`, host no main
+`transition(snapshot, evento)` não tem efeitos colaterais: devolve o próximo estado, o comando para o timer transitório (`schedule`/`cancel`/`keep`) e se o evento foi interação do usuário. O `CharacterStateHost` no main mantém os dois únicos timers e envia `character:view` para a janela. A janela se inscreve **antes** de consultar `character:getView`, para não perder mudanças no meio.
+
+### 2026-10-24 · Estado-base sempre `idle`; aviso pendente vira indicador
+Quando a pose de aviso expira, o personagem volta a `idle` com um pontinho âmbar no visor (`badge`) até o aviso ser visto. **Motivo:** evitar que o personagem volte a "chamar atenção" depois de cada resposta (SPEC §2).
+
+### 2026-10-24 · Inatividade bloqueada tenta de novo
+Se o tempo de inatividade acaba num momento em que não dá para dormir (gerando resposta, balão aberto, aviso pendente), o contador recomeça. Assim o personagem dorme depois, mesmo sem nova interação.
+
+### 2026-10-24 · Pré-visualização de estados descartável e só em desenvolvimento
+Submenu "Pré-visualizar estado (dev)" no clique direito, apenas quando o app não está empacotado. A prévia dura 4 s; qualquer evento real a descarta e é tratado a partir de `idle` (sem isso, prever "dragging" e depois receber um evento deixava o personagem preso na pose; bug encontrado e coberto por teste).
+
+### 2026-10-24 · Animações finitas em repouso
+Loops infinitos só em `thinking` e `talking`, que duram segundos. "z" de dormir e pulso do aviso repetem 3 vezes e param. Verificado por teste do CSS e por E2E (`document.getAnimations()`).
+
+### 2026-10-24 · Contorno escuro nas alças
+As alças prateadas sumiam em fundos claros (papel de parede claro, barra de tarefas clara do Windows 11). Ganharam um contorno escuro no personagem e no ícone da bandeja.
+
+### 2026-10-24 · Sono curto só em E2E
+`CLIPSTER_E2E_SLEEP_AFTER_MS` substitui "Dormir depois de" apenas quando `CLIPSTER_E2E=1`, para testar o sono em segundos.
+
+### 2026-10-24 · Versão 0.2.0

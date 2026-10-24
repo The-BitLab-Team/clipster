@@ -7,6 +7,7 @@ import type {
   PersonalityId,
   Settings,
   SettingsPatch,
+  SleepAfterMinutes,
   ThemePreference
 } from '../../shared/schemas/settings';
 import { Card, RangeField, SelectField, ToggleField } from './fields';
@@ -16,6 +17,19 @@ export interface SectionProps {
   info: AppInfo;
   t: Translator;
   save: (patch: SettingsPatch) => void;
+}
+
+const SLEEP_OPTIONS: readonly SleepAfterMinutes[] = [5, 10, 30, 0];
+type SleepOptionValue = `${SleepAfterMinutes}`;
+const SLEEP_BY_VALUE: Readonly<Record<SleepOptionValue, SleepAfterMinutes>> = {
+  '0': 0,
+  '5': 5,
+  '10': 10,
+  '30': 30
+};
+
+function sleepOptionValue(minutes: SleepAfterMinutes): SleepOptionValue {
+  return `${minutes}`;
 }
 
 export function GeneralSection({ settings, info, t, save }: SectionProps) {
@@ -73,6 +87,19 @@ export function GeneralSection({ settings, info, t, save }: SectionProps) {
         checked={general.quietMode}
         onChange={(quietMode) => {
           save({ general: { quietMode } });
+        }}
+      />
+      <SelectField
+        id="sleep-after"
+        label={t('settings.general.sleepAfter')}
+        hint={t('settings.general.sleepAfter.hint')}
+        value={sleepOptionValue(general.sleepAfterMinutes)}
+        options={SLEEP_OPTIONS.map((minutes) => ({
+          value: sleepOptionValue(minutes),
+          label: t(`settings.general.sleepAfter.${sleepOptionValue(minutes)}`)
+        }))}
+        onChange={(value) => {
+          save({ general: { sleepAfterMinutes: SLEEP_BY_VALUE[value] } });
         }}
       />
     </Card>

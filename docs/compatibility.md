@@ -2,7 +2,7 @@
 
 Legenda: **Testado** = verificado de fato · **Deve funcionar** = implementado, mas não verificado nessa plataforma · **Não testado** = sem verificação nem expectativa firme · **N/A** = não se aplica.
 
-Atualizado em 24/10/2026 (versão 0.1.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
+Atualizado em 24/10/2026 (versão 0.2.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
 
 ## Por recurso
 
@@ -21,6 +21,9 @@ Atualizado em 24/10/2026 (versão 0.1.0). Até aqui, os testes rodaram apenas nu
 | Configurações (abrir, alterar, persistir) | Deve funcionar | Deve funcionar | **Testado** (E2E) | Não testado |
 | Comandos da bandeja (personalidade, esconder, mostrar) | Deve funcionar | Deve funcionar | **Testado** (E2E, via ganchos) | Não testado |
 | Sair encerra o processo | Deve funcionar | Deve funcionar | **Testado** (E2E) | Não testado |
+| Estados do personagem (10 poses) | Deve funcionar | Deve funcionar | **Testado** (E2E + capturas de cada pose) | Não testado |
+| Sono por inatividade e acordar confuso | Deve funcionar | Deve funcionar | **Testado** (E2E com tempo curto) | Não testado |
+| Animações finitas em repouso; nenhuma com "Desligadas" | Deve funcionar | Deve funcionar | **Testado** (E2E com `document.getAnimations()`) | Não testado |
 | Zero requisições de rede | Deve funcionar | Deve funcionar | **Testado** (E2E + log de rede) | Não testado |
 | Iniciar com o sistema | Deve funcionar (só instalado) | Deve funcionar (só instalado) | N/A no MVP | N/A no MVP |
 | Pacote instalável | Gerado pelo workflow `build-artifacts` ou `npm run package:win` (não testado) | Não testado | **Testado**: AppImage gerado e iniciado | — |
@@ -33,6 +36,7 @@ Atualizado em 24/10/2026 (versão 0.1.0). Até aqui, os testes rodaram apenas nu
 | Ambiente | CPU em repouso | Memória (PSS, todos os processos) | Observação |
 |----------|----------------|-----------------------------------|------------|
 | Linux/Xvfb, contêiner, renderização por software | ~0% (média de 20 s) | ~270 MB | Sem GPU; o processo de GPU por software pesa mais. Medir no Windows. |
+| Linux/Xvfb, v0.2.0, personagem **dormindo** (depois que os "z" param) | ~0,3% (média de 20 s) | — | Pose estática; nenhuma animação contínua. |
 | Windows | — | — | Preencher pelo `qa-checklist.md`. |
 
 ## Observações

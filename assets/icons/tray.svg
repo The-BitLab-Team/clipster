@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!-- Ícone simplificado da bandeja: alças, corpo e visor do Clipster. -->
+  <path d="M11.5 13 L9 5.5 Q8.6 3.6 10.5 3.5 L12 3.5 Q13.8 3.5 13.8 5.3 L14 13" fill="none" stroke="#3c4f5a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M11.5 13 L9 5.5 Q8.6 3.6 10.5 3.5 L12 3.5 Q13.8 3.5 13.8 5.3 L14 13" fill="none" stroke="#d3dde4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20.5 13 L23 5.5 Q23.4 3.6 21.5 3.5 L20 3.5 Q18.2 3.5 18.2 5.3 L18 13" fill="none" stroke="#3c4f5a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M20.5 13 L23 5.5 Q23.4 3.6 21.5 3.5 L20 3.5 Q18.2 3.5 18.2 5.3 L18 13" fill="none" stroke="#d3dde4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M8.5 12.5 H23.5 Q25 12.5 25.4 14 L28 26.5 Q28.5 29 26 29 H6 Q3.5 29 4 26.5 L6.6 14 Q7 12.5 8.5 12.5 Z" fill="#2a6b76"/>
   <rect x="8.5" y="17" width="15" height="9" rx="2.5" fill="#0e1d24"/>

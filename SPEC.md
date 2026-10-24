@@ -149,28 +149,32 @@ Opcional: `dragging`.
 
 ### 5.4 Pipeline de assets
 
-- Cada pacote de personagem fica em `assets/character/<id>/` com um `manifest.json`:
+- Cada pacote de personagem fica em `assets/character/<id>/` com um `manifest.json`. O formato do MVP é o **`svg-rig`**: um único SVG com partes nomeadas (alças, visor, variações de olhos e bocas, acessórios) e um CSS de poses que mostra, esconde e move essas partes conforme `data-state`:
 
 ```json
 {
   "id": "placeholder",
-  "format": "svg",
+  "name": "Clipster (placeholder)",
+  "format": "svg-rig",
   "size": { "width": 160, "height": 160 },
+  "rig": "clipster.svg",
+  "styles": "poses.css",
   "states": {
-    "idle": { "src": "idle.svg", "loop": true },
-    "thinking": { "src": "thinking.svg", "loop": true }
+    "idle": { "blink": true },
+    "thinking": { "blink": false }
   },
   "fallbackState": "idle"
 }
 ```
 
-- Estado sem asset → usa `fallbackState` (permite entregar arte aos poucos).
-- O manifesto DEVE ser validado com Zod ao carregar.
-- Formatos suportados por adaptadores: SVG + CSS (MVP), sprite sheet, WebP animado, sequência PNG e Lottie (futuro). Dependências de um formato (ex.: `lottie-web`) só entram quando esse formato for usado.
+- Estado sem pose → usa `fallbackState` (permite entregar arte aos poucos).
+- O manifesto DEVE ser validado com Zod ao carregar (`zod/mini`, para não pesar a janela do personagem) e por um teste que confere arquivos, partes obrigatórias do SVG, uma pose por estado e a ausência de estilos inline.
+- Formatos por adaptadores: `svg-rig` (MVP); sprite sheet, WebP animado, sequência PNG e Lottie (futuro), cada um com seu adaptador. Dependências de um formato (ex.: `lottie-web`) só entram quando esse formato for usado.
+- Acessórios (reticências, "z", "?", "!", brilhos) ficam fora da área clicável e têm contorno escuro, para aparecer em papéis de parede claros e escuros.
 
 ### 5.5 CharacterController
 
-- Interface única: `setState(state)`, `getState()`, `setScale(n)`, `setMotion('full' | 'reduced' | 'off')`, `destroy()`.
+- Interface única: `setView({ state, badge })`, `state` (somente leitura), `setMotion('full' | 'reduced' | 'off')`, `poke()`, `destroy()`. A escala é aplicada pelo tamanho da janela.
 - O controller apenas **renderiza** o estado recebido. A decisão de **qual** estado mostrar fica na máquina de estados (§6).
 - NÃO usar React para controlar frames da animação. Animações por CSS (`transform`/`opacity`) ou pelo próprio formato do asset.
 - A janela do personagem expõe `data-state="<estado>"` no elemento raiz (útil para testes E2E).
@@ -201,7 +205,8 @@ Opcional: `dragging`.
 | `NOTIFICATION` | `idle`/`sleeping` | `notification` | Volta a `idle` ao abrir/dispensar ou após ~30 s (fica um indicador discreto). |
 | `INACTIVITY_TIMEOUT` | `idle` | `sleeping` | Padrão 10 min (configurável: 5/10/30 min/nunca). |
 | `SUCCESS_FEEDBACK` | `idle` | `happy` → `idle` | Ex.: troca de personalidade, ferramenta concluída. ~1,5 s. |
-| `DRAG_START` / `DRAG_END` | qualquer estado não ocupado | `dragging` → estado anterior | Só se houver asset de `dragging`. |
+| `DRAG_START` / `DRAG_END` | qualquer estado exceto `thinking`, `talking`, `error` | `dragging` → `idle` | Sem pose de `dragging` no pacote, usa o fallback. |
+| `PREVIEW` (só em desenvolvimento) | qualquer | estado pedido → `idle` após 4 s | Submenu "Pré-visualizar estado (dev)". Qualquer evento real descarta a prévia e é tratado a partir de `idle`. |
 
 Regras:
 
@@ -815,7 +820,8 @@ O app fica aberto por horas. Metas iniciais (medir e registrar em `docs/compatib
 
 Regras:
 
-- Nenhum `setInterval` em repouso. Um único timer de inatividade (§6).
+- Nenhum `setInterval` em repouso. No main, no máximo dois timers do personagem (transitório e inatividade, §6); na janela, só a piscada ocasional.
+- Animações de poses que podem durar muito (idle, sleeping, notification) têm número **finito** de repetições; loops infinitos só em `thinking` e `talking`. Verificado por teste.
 - Animações em CSS `transform`/`opacity`, pausadas com a janela oculta (`document.hidden`) e em `sleeping` com movimento reduzido.
 - `backgroundThrottling` ligado (padrão).
 - Configurações criadas sob demanda e destruídas ao fechar. Balão pré-criado e reutilizado.
@@ -987,7 +993,7 @@ Cada fase só termina quando seus critérios de saída passam.
 
 **MVP técnico** = Fases 0–3 + entrega da Fase 6 (empacotamento, docs, QA). **Primeiro release público** = MVP técnico + Fase 4 + decisões D1–D7.
 
-**Status em 24/10/2026:** Fases 0 e 1 concluídas (versão 0.1.0). Próxima: Fase 2.
+**Status em 24/10/2026:** Fases 0, 1 e 2 concluídas (versão 0.2.0). Próxima: Fase 3.
 
 ---
 
@@ -1147,7 +1153,8 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `chat:typing` | invoke | `{ typing: boolean }` → — (alimenta `listening`) |
 | `ai:models:list` | invoke | `{ provider }` → `ModelInfo[]` |
 | `ai:connection:test` | invoke | `{ provider }` → `ConnectionStatus` |
-| `character:state` | event | `{ state }` |
+| `character:view` | event | `{ state, badge }` (pose decidida pela máquina de estados) |
+| `character:getView` | invoke | — → `{ state, badge }` (consulta ao abrir a janela) |
 | `character:click` | invoke | — → — |
 | `character:dragStart` / `dragMove` / `dragEnd` | invoke | `{ dx, dy }` no `dragMove` |
 | `character:setClickThrough` | invoke | `{ ignore: boolean }` |

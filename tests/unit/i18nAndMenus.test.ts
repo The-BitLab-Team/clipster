@@ -50,7 +50,8 @@ const baseState: MenuState = {
   alwaysOnTop: true,
   quietMode: false,
   characterVisible: true,
-  chatAvailable: false
+  chatAvailable: false,
+  devTools: false
 };
 
 function flatten(items: readonly MenuItemSpec[]): MenuItemSpec[] {
@@ -111,10 +112,21 @@ describe('menus (SPEC §11)', () => {
     expect(find(menu, 'personality-witty')).toMatchObject({ label: 'Witty' });
   });
 
+  it('pré-visualização de estados só aparece com ferramentas de desenvolvimento', () => {
+    expect(find(buildCharacterContextMenu(baseState), 'preview-state')).toBeUndefined();
+    expect(find(buildTrayMenu({ ...baseState, devTools: true }), 'preview-state')).toBeUndefined();
+    const dev = buildCharacterContextMenu({ ...baseState, devTools: true });
+    const submenu = find(dev, 'preview-state');
+    expect(submenu).toMatchObject({ kind: 'submenu', label: 'Pré-visualizar estado (dev)' });
+    expect(find(dev, 'preview-sleeping')).toMatchObject({ command: 'previewState:sleeping' });
+    // "Sair" continua sendo o último item.
+    expect(dev.at(-1)).toMatchObject({ id: 'quit' });
+  });
+
   it('todo comando usado nos menus é conhecido', () => {
     const commands = [
       ...flatten(buildTrayMenu(baseState)),
-      ...flatten(buildCharacterContextMenu(baseState))
+      ...flatten(buildCharacterContextMenu({ ...baseState, devTools: true }))
     ]
       .filter((item) => 'command' in item)
       .map((item) => ('command' in item ? item.command : ''));

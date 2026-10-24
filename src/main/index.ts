@@ -35,6 +35,12 @@ if (isE2E && e2eUserDataDir !== undefined && e2eUserDataDir !== '') {
 
 registerAppSchemeAsPrivileged();
 
+/** Só em E2E: tempo curto para testar o sono por inatividade. */
+function e2eSleepAfterMs(): number | null {
+  const value = Number(process.env.CLIPSTER_E2E_SLEEP_AFTER_MS);
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
 // Registrado antes do `ready` para alcançar a sessão padrão no momento em que ela nasce.
 app.on('session-created', disableSpellcheckerDownloads);
 
@@ -92,7 +98,9 @@ async function main(): Promise<void> {
         isE2E
       }),
       clickThrough: process.platform === 'win32' || process.platform === 'darwin'
-    }
+    },
+    devTools: !app.isPackaged,
+    sleepAfterMsOverride: isE2E ? e2eSleepAfterMs() : null
   });
 
   app.on('second-instance', () => {

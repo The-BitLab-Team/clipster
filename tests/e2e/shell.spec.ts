@@ -50,7 +50,7 @@ test('o app inicia e o personagem aparece no estado idle', async () => {
     expect(bounds).toMatchObject({ width: 160, height: 160 });
 
     const info = await characterPage.evaluate(() => window.clipster.app.info());
-    expect(info.ok && info.data.version).toBe('0.1.0');
+    expect(info.ok && info.data.version).toBe('0.2.0');
   } finally {
     await app.close();
   }
@@ -207,7 +207,9 @@ test('arrastar move o personagem e a posição é restaurada ao reabrir', async 
 
 test('privacidade: o app não faz nenhuma requisição de rede ao iniciar e abrir Configurações', async () => {
   const netLog = join(userDataDir, 'net-log.json');
-  const { app } = await launchClipster(userDataDir, [`--log-net-log=${netLog}`]);
+  const { app } = await launchClipster(userDataDir, {
+    args: [`--log-net-log=${netLog}`]
+  });
   try {
     await eventually(
       () => isCharacterVisible(app),

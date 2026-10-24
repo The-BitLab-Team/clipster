@@ -13,6 +13,8 @@ export const IpcChannel = {
   characterSetClickThrough: 'character:setClickThrough',
   characterClick: 'character:click',
   characterContextMenu: 'character:contextMenu',
+  characterGetView: 'character:getView',
+  characterView: 'character:view',
 
   windowsOpenSettings: 'windows:settings:open',
   windowsSettingsNavigate: 'windows:settings:navigate',
