@@ -18,7 +18,6 @@ export const en = {
 
   'menu.open': 'Open Clipster',
   'menu.talk': 'Talk to Clipster',
-  'menu.talkSoon': 'Talk to Clipster (coming soon)',
   'menu.personality': 'Personality',
   'menu.alwaysOnTop': 'Always on Top',
   'menu.quietMode': 'Quiet Mode',
@@ -28,6 +27,9 @@ export const en = {
   'menu.hideShort': 'Hide',
   'menu.quit': 'Quit',
   'menu.previewState': 'Preview state (dev)',
+  'tip.hidden.title': "I'm still here",
+  'tip.hidden.body':
+    'Call me from the tray, near the clock. On Windows 11 the icon may be under “Show hidden icons” (^).',
   'tray.tooltip': 'Clipster',
 
   'personality.helpful.name': 'Helpful',
@@ -67,9 +69,6 @@ export const en = {
   'settings.general.sleepAfter.30': '30 minutes',
   'settings.general.sleepAfter.0': 'Never',
 
-  'settings.ai.placeholder':
-    'Connecting to an AI is coming in a future version. For now, nothing leaves your computer.',
-
   'settings.personality.hint':
     'Personality changes the tone of the answers, not what Clipster can do.',
 
@@ -86,8 +85,41 @@ export const en = {
 
   'settings.privacy.summary':
     'Clipster does not watch your screen, keyboard, clipboard, files or other apps.',
-  'settings.privacy.local': 'Settings and position are stored only on this computer.',
+  'settings.privacy.local':
+    'Settings, position and, if you turn it on, history stay only on this computer.',
   'settings.privacy.noTelemetry': 'No telemetry: nothing is sent out.',
+
+  'settings.general.shortcut': 'Shortcut to call Clipster',
+  'settings.general.shortcut.hint': '{accelerator}, from any app: opens or closes the balloon.',
+  'settings.general.shortcut.space': 'Space',
+  'settings.general.shortcut.inUse': 'That shortcut is already used by another app.',
+  'settings.ai.provider': 'AI used in conversations',
+  'settings.ai.provider.none': 'None',
+  'settings.ai.provider.demo': 'Demo mode',
+  'settings.ai.demoHint': 'Pre-programmed sample answers: no AI and no internet.',
+  'settings.ai.noneHint': 'Without an AI, the balloon shows how to set one up.',
+  'settings.ai.comingSoon':
+    'Connecting to Ollama, LM Studio, Claude and OpenAI arrives in the next version. Until then, nothing leaves your computer.',
+  'settings.appearance.chatScale': 'Conversation balloon size',
+  'settings.privacy.saveHistory': 'Save conversation history',
+  'settings.privacy.saveHistory.hint':
+    'Stays on this computer only. When off, a conversation lasts until "New conversation" or until you quit.',
+  'settings.privacy.retention': 'Keep history for',
+  'settings.privacy.retention.7': '7 days',
+  'settings.privacy.retention.30': '30 days',
+  'settings.privacy.retention.90': '90 days',
+  'settings.privacy.retention.0': 'Forever',
+  'settings.privacy.clear': 'Clear history',
+  'settings.privacy.clear.confirm':
+    'Delete all conversation history, including the current conversation? This cannot be undone.',
+  'settings.privacy.clear.cancel': 'Cancel',
+  'settings.privacy.clear.confirmButton': 'Delete history',
+  'settings.privacy.cleared': 'History deleted.',
+  'settings.privacy.disabled.ask':
+    'History is off. Do you also want to delete what was already saved?',
+  'settings.privacy.disabled.keep': 'Keep',
+  'settings.privacy.disabled.delete': 'Delete',
+  'settings.privacy.demoOffline': 'Demo mode works offline.',
 
   'settings.about.version': 'Version',
   'settings.about.runtime': 'Electron {electron} · Chromium {chrome}',
@@ -95,5 +127,96 @@ export const en = {
   'settings.about.licenseValue': 'To be decided',
   'settings.about.repository': 'Repository',
   'settings.about.openLogs': 'Open logs folder',
-  'settings.about.disclaimer': 'Not affiliated with Microsoft.'
+  'settings.about.disclaimer': 'Not affiliated with Microsoft.',
+
+  'balloon.title': 'Clipster',
+  'balloon.region': 'Conversation with Clipster',
+  'balloon.demoBadge': 'Demo',
+  'balloon.demoBadge.hint': 'Demo mode: sample answers, no AI.',
+  'balloon.personality.label': 'Personality',
+  'balloon.newConversation': 'New conversation',
+  'balloon.close': 'Close',
+  'balloon.messages.label': 'Messages',
+  'balloon.you': 'You',
+  'balloon.placeholder': 'Ask Clipster something…',
+  'balloon.input.label': 'Message to Clipster',
+  'balloon.input.hint': 'Enter sends; Shift+Enter adds a new line.',
+  'balloon.send': 'Send',
+  'balloon.stop': 'Stop',
+  'balloon.thinking': 'Clipster is thinking…',
+  'balloon.responding': 'Clipster is answering',
+  'balloon.interrupted': '(interrupted)',
+  'balloon.emptyReply': '(no answer)',
+  'balloon.copy': 'Copy',
+  'balloon.copied': 'Copied!',
+  'balloon.copyCode': 'Copy code',
+  'balloon.charCount': '{count} of {max} characters',
+  'balloon.image': '[image: {alt}]',
+  'balloon.imageNoAlt': '[image]',
+  'balloon.link.title': 'Opens {host} in your browser',
+  'balloon.noProvider.title': 'No AI set up',
+  'balloon.noProvider.body': 'To chat, set up an AI or try demo mode.',
+  'balloon.noProvider.configure': 'Set up AI',
+  'balloon.noProvider.demo': 'Use demo mode',
+  'balloon.suggestions.label': 'Try asking',
+  'balloon.suggestion.rename': 'How do I rename a file?',
+  'balloon.suggestion.screenshot': 'How do I take a screenshot?',
+  'balloon.suggestion.time': 'What time is it?',
+  'balloon.errorCode': 'Code: {code}',
+  'balloon.retryIn': 'Retry in {seconds} s',
+  'balloon.sendFailed': "Couldn't send: {message}",
+
+  'error.PROVIDER_NOT_CONFIGURED': 'To have a real conversation, set up an AI.',
+  'error.PROVIDER_NOT_CONFIGURED.witty':
+    "Without an AI, I'm just a friendly binder clip. Set one up or use demo mode.",
+  'error.AUTH_INVALID': 'The API key was rejected. Check it in Settings.',
+  'error.MODEL_NOT_FOUND': 'The selected model is not available. Choose another one.',
+  'error.RATE_LIMITED': 'Too many requests in a row. Try again in {seconds} s.',
+  'error.RATE_LIMITED.witty':
+    'One at a time: too many requests in a row. Try again in {seconds} s.',
+  'error.QUOTA_OR_BILLING': 'The account usage or billing limit has been reached.',
+  'error.PROVIDER_OVERLOADED': 'The AI service is overloaded. Try again in a moment.',
+  'error.PROVIDER_OVERLOADED.witty':
+    "The AI service is overloaded (it wasn't me). Try again in a moment.",
+  'error.TIMEOUT': 'The answer took too long.',
+  'error.TIMEOUT.witty': 'The answer took too long. Even I got tired of waiting.',
+  'error.OFFLINE':
+    "I couldn't connect. Check the internet, or whether the local server is running.",
+  'error.OFFLINE.witty':
+    "I couldn't connect. Check the internet, or whether the local server is running; I can't reach the cable from in here.",
+  'error.CONTEXT_TOO_LONG': 'The conversation got too long.',
+  'error.CONTEXT_TOO_LONG.witty':
+    'The conversation got too long, even for me. Shall we start a new one?',
+  'error.SECURE_STORAGE_UNAVAILABLE':
+    "There's no secure vault on this system; the key wouldn't be protected.",
+  'error.STORAGE_RESET': 'Some settings were restored to their defaults.',
+  'error.STORAGE_RESET.witty':
+    'Some settings got lost and went back to their defaults. It happens to the best of us.',
+  'error.IPC_FAILURE': 'Something went wrong in here. Please try again.',
+  'error.UNKNOWN': 'An unexpected error occurred (code {code}).',
+  'error.RATE_LIMITED.noDelay': 'Too many requests in a row. Try again in a moment.',
+  'error.action.configureAi': 'Set up AI',
+  'error.action.useDemo': 'Demo mode',
+  'error.action.openSettings': 'Open Settings',
+  'error.action.chooseModel': 'Choose model',
+  'error.action.retry': 'Try again',
+  'error.action.newConversation': 'New conversation',
+
+  'onboarding.label': 'Getting started',
+  'onboarding.step': 'Step {current} of {total}',
+  'onboarding.skip': 'Skip',
+  'onboarding.next': 'Continue',
+  'onboarding.greeting.title': "Hi! I'm Clipster.",
+  'onboarding.greeting.body': 'I can hang around here and help whenever you need me.',
+  'onboarding.language': 'Language',
+  'onboarding.personality.title': 'How would you like me to talk?',
+  'onboarding.personality.body': 'You can switch anytime, here in the balloon or from the tray.',
+  'onboarding.ai.title': 'Last step: the AI',
+  'onboarding.ai.body':
+    'For real answers, I connect to an AI of your choice. Meanwhile, you can try demo mode.',
+  'onboarding.ai.demo': 'Try demo mode',
+  'onboarding.ai.configure': 'Set up AI now',
+  'onboarding.ai.later': 'Later',
+  'onboarding.ai.permissions':
+    'Some future features will ask for your permission before accessing anything on your computer. You stay in control.'
 } satisfies Record<keyof typeof ptBR, string>;

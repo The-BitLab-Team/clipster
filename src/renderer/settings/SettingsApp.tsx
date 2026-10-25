@@ -22,7 +22,7 @@ import {
   PrivacySection,
   type SectionProps
 } from './sections';
-import { getSnapshot, subscribe, updateSettings } from './settingsClient';
+import { getSnapshot, subscribe, updateSettings } from '../lib/settingsClient';
 
 const SECTIONS: readonly {
   id: SettingsSection;
@@ -76,7 +76,10 @@ export function SettingsApp() {
 
   const save = (patch: SettingsPatch): void => {
     void updateSettings(patch).then((result) => {
-      setSaveError(result.ok ? null : t('settings.saveError', { message: result.error.message }));
+      if (result.ok) setSaveError(null);
+      else if (result.error.code === 'SHORTCUT_IN_USE') {
+        setSaveError(t('settings.general.shortcut.inUse'));
+      } else setSaveError(t('settings.saveError', { message: result.error.message }));
     });
   };
 

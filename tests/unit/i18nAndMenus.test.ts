@@ -50,7 +50,6 @@ const baseState: MenuState = {
   alwaysOnTop: true,
   quietMode: false,
   characterVisible: true,
-  chatAvailable: false,
   devTools: false
 };
 
@@ -93,16 +92,13 @@ describe('menus (SPEC §11)', () => {
     expect(find(menu, 'visibility')).toMatchObject({ label: 'Mostrar Clipster' });
   });
 
-  it('menu de contexto tem "Conversar" desabilitado enquanto o chat não existe', () => {
+  it('menu de contexto começa com "Conversar com o Clipster", habilitado', () => {
     const menu = buildCharacterContextMenu(baseState);
-    expect(find(menu, 'talk')).toMatchObject({
-      enabled: false,
-      label: 'Conversar com o Clipster (em breve)'
-    });
-    expect(
-      find(buildCharacterContextMenu({ ...baseState, chatAvailable: true }), 'talk')
-    ).toMatchObject({
-      enabled: true
+    expect(menu[0]).toMatchObject({
+      id: 'talk',
+      enabled: true,
+      command: 'talk',
+      label: 'Conversar com o Clipster'
     });
   });
 

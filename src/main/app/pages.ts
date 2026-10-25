@@ -1,6 +1,6 @@
 import { APP_BASE_URL } from '../../shared/constants/app';
 
-export type PageName = 'character' | 'settings';
+export type PageName = 'character' | 'balloon' | 'settings';
 
 /**
  * URL de cada página. Em `electron-vite dev` usa o servidor do Vite (HMR);

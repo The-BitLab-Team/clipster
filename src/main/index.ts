@@ -35,6 +35,13 @@ if (isE2E && e2eUserDataDir !== undefined && e2eUserDataDir !== '') {
 
 registerAppSchemeAsPrivileged();
 
+/** Só em E2E: ritmo do Demo (atraso entre pedaços; a pausa inicial é 10×). Padrão: 0. */
+function e2eDemoTiming(): { thinkingMs: number; chunkMs: number } {
+  const value = Number(process.env.CLIPSTER_E2E_DEMO_DELAY_MS ?? '0');
+  const chunkMs = Number.isInteger(value) && value >= 0 ? value : 0;
+  return { thinkingMs: chunkMs * 10, chunkMs };
+}
+
 /** Só em E2E: tempo curto para testar o sono por inatividade. */
 function e2eSleepAfterMs(): number | null {
   const value = Number(process.env.CLIPSTER_E2E_SLEEP_AFTER_MS);
@@ -91,6 +98,7 @@ async function main(): Promise<void> {
     trayTemplateIconPath,
     appIconPath,
     logsDir,
+    userDataDir: userData,
     capabilities: {
       launchAtLogin: isLaunchAtLoginSupported({
         platform: process.platform,
@@ -100,14 +108,16 @@ async function main(): Promise<void> {
       clickThrough: process.platform === 'win32' || process.platform === 'darwin'
     },
     devTools: !app.isPackaged,
-    sleepAfterMsOverride: isE2E ? e2eSleepAfterMs() : null
+    allowSimulations: !app.isPackaged || isE2E,
+    sleepAfterMsOverride: isE2E ? e2eSleepAfterMs() : null,
+    demoTiming: isE2E ? e2eDemoTiming() : null
   });
 
   app.on('second-instance', () => {
-    controller.showCharacter();
+    controller.onSecondInstance();
   });
   app.on('activate', () => {
-    controller.showCharacter();
+    void controller.showCharacter();
   });
   app.on('before-quit', () => {
     controller.prepareQuit();

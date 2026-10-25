@@ -16,6 +16,21 @@ export const IpcChannel = {
   characterGetView: 'character:getView',
   characterView: 'character:view',
 
+  chatSend: 'chat:send',
+  chatCancel: 'chat:cancel',
+  chatRetry: 'chat:retry',
+  chatEvent: 'chat:event',
+  chatConversationGet: 'chat:conversation:get',
+  chatConversationNew: 'chat:conversation:new',
+  chatHistoryClear: 'chat:history:clear',
+  chatTyping: 'chat:typing',
+  onboardingComplete: 'onboarding:complete',
+
+  windowsBalloonClose: 'windows:balloon:close',
+  balloonResize: 'balloon:resize',
+  balloonPlacement: 'balloon:placement',
+  balloonShown: 'balloon:shown',
+
   windowsOpenSettings: 'windows:settings:open',
   windowsSettingsNavigate: 'windows:settings:navigate',
   windowsHideClipster: 'windows:hideClipster',
@@ -24,6 +39,7 @@ export const IpcChannel = {
   appQuit: 'app:quit',
 
   shellOpenExternal: 'shell:openExternal',
+  clipboardWriteText: 'clipboard:writeText',
   diagnosticsOpenLogs: 'diagnostics:openLogs',
   logWrite: 'log:write'
 } as const;

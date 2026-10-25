@@ -24,6 +24,13 @@ describe('esquema de configurações', () => {
     );
     expect(SettingsPatchSchema.safeParse({ schemaVersion: 2 }).success).toBe(false);
     expect(SettingsPatchSchema.safeParse({ firstRunCompleted: true }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ hideTipShown: true }).success).toBe(false);
+  });
+
+  it('tamanho do chat fica entre 85% e 130%', () => {
+    expect(SettingsPatchSchema.safeParse({ appearance: { chatScale: 1.3 } }).success).toBe(true);
+    expect(SettingsPatchSchema.safeParse({ appearance: { chatScale: 1.5 } }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ appearance: { chatScale: 0.8 } }).success).toBe(false);
   });
 
   it('o patch rejeita valores fora do intervalo', () => {
@@ -65,6 +72,21 @@ describe('leitura tolerante (parseStoredSettings)', () => {
       settings: stored,
       issues: []
     });
+  });
+
+  it('arquivo da versão anterior (sem hideTipShown) é lido sem erro; valor inválido é reportado', () => {
+    const older: Record<string, unknown> = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as Record<
+      string,
+      unknown
+    >; // cópia simples de um objeto JSON
+    delete older.hideTipShown;
+    expect(parseStoredSettings(older)).toEqual({
+      settings: DEFAULT_SETTINGS,
+      issues: []
+    });
+    const broken = parseStoredSettings({ ...DEFAULT_SETTINGS, hideTipShown: 'sim' });
+    expect(broken.issues).toEqual(['hideTipShown']);
+    expect(broken.settings.hideTipShown).toBe(false);
   });
 
   it('campos ausentes recebem o padrão sem serem tratados como erro', () => {

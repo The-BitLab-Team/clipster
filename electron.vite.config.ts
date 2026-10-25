@@ -24,6 +24,7 @@ export default defineConfig({
       rolldownOptions: {
         input: {
           character: resolve('src/renderer/character.html'),
+          balloon: resolve('src/renderer/balloon.html'),
           settings: resolve('src/renderer/settings.html')
         }
       }

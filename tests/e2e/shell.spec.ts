@@ -50,7 +50,7 @@ test('o app inicia e o personagem aparece no estado idle', async () => {
     expect(bounds).toMatchObject({ width: 160, height: 160 });
 
     const info = await characterPage.evaluate(() => window.clipster.app.info());
-    expect(info.ok && info.data.version).toBe('0.2.0');
+    expect(info.ok && info.data.version).toBe('0.3.0');
   } finally {
     await app.close();
   }
@@ -68,9 +68,13 @@ test('a janela do personagem não tem Node e expõe só a API do Clipster', asyn
     expect(globals.hasProcess).toBe(false);
     expect(globals.apiKeys).toEqual([
       'app',
+      'balloon',
       'character',
+      'chat',
+      'clipboard',
       'diagnostics',
       'log',
+      'onboarding',
       'settings',
       'shell',
       'windows'

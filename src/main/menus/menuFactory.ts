@@ -48,8 +48,6 @@ export interface MenuState {
   alwaysOnTop: boolean;
   quietMode: boolean;
   characterVisible: boolean;
-  /** O balão de conversa só existe a partir da Fase 3. */
-  chatAvailable: boolean;
   /** Ferramentas de desenvolvimento (pré-visualizar estados). Nunca no app instalado. */
   devTools: boolean;
 }
@@ -97,13 +95,7 @@ function previewSubmenu(state: MenuState): MenuItemSpec {
 
 function talkItem(state: MenuState): MenuItemSpec {
   const t = createTranslator(state.locale);
-  return {
-    kind: 'command',
-    id: 'talk',
-    label: state.chatAvailable ? t('menu.talk') : t('menu.talkSoon'),
-    command: 'talk',
-    enabled: state.chatAvailable
-  };
+  return { kind: 'command', id: 'talk', label: t('menu.talk'), command: 'talk', enabled: true };
 }
 
 export function buildTrayMenu(state: MenuState): MenuItemSpec[] {

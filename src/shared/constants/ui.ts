@@ -31,6 +31,13 @@ export type CharacterTimings = { readonly [K in keyof typeof CHARACTER_TIMINGS]:
 export const BLINK_INTERVAL_MS = { min: 4000, max: 8000 } as const;
 export const POKE_ANIMATION_MS = 420;
 
+/** O balão é criado escondido alguns segundos após iniciar, para abrir na hora (SPEC §19.5). */
+export const BALLOON_PRECREATE_DELAY_MS = 1500;
+/** Na primeira execução, o balão com a saudação aparece depois deste tempo (SPEC §9). */
+export const FIRST_RUN_BALLOON_DELAY_MS = 1200;
+/** Intervalo mínimo entre avisos de "digitando" enviados pelo balão. */
+export const TYPING_NOTIFY_INTERVAL_MS = 1000;
+
 export const SETTINGS_WINDOW_SIZE = {
   width: 720,
   height: 520,

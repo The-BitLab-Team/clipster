@@ -1,3 +1,4 @@
+import type { ConversationSnapshot } from '../../shared/ai/conversation';
 import type { CharacterEvent } from '../../shared/character/stateMachine';
 import type { CharacterView } from '../../shared/character/states';
 import type { Settings } from '../../shared/schemas/settings';
@@ -18,6 +19,13 @@ export interface TestHooks {
   characterView: () => CharacterView;
   /** Simula eventos que só existirão em fases futuras (IA, avisos). */
   dispatchCharacterEvent: (event: CharacterEvent) => void;
+  isBalloonVisible: () => boolean;
+  balloonBounds: () => { x: number; y: number; width: number; height: number } | null;
+  /** Mesmo efeito do clique no personagem (abre/fecha o balão). */
+  clickCharacter: () => void;
+  conversation: () => ConversationSnapshot;
+  flushHistory: () => Promise<void>;
+  readClipboard: () => Promise<string>;
 }
 
 declare global {

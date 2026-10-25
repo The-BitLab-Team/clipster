@@ -1,10 +1,22 @@
+import type { ChatEvent, ConversationSnapshot } from '../ai/conversation';
 import type { CharacterView } from '../character/states';
-import type { Settings, SettingsPatch, SettingsSection } from '../schemas/settings';
+import type { PersonalityId, Settings, SettingsPatch, SettingsSection } from '../schemas/settings';
+import type { BalloonPlacement, BalloonShown } from '../ui/balloon';
 import type { IpcChannel } from './channels';
 import type { DragMovePayload, LogLevel } from './payloads';
 
 /** Envelope de toda resposta `invoke` (SPEC §17.3). */
-export type IpcErrorCode = 'INVALID_PAYLOAD' | 'FORBIDDEN_SENDER' | 'UNSUPPORTED' | 'INTERNAL';
+export type IpcErrorCode =
+  | 'INVALID_PAYLOAD'
+  | 'FORBIDDEN_SENDER'
+  | 'UNSUPPORTED'
+  | 'INTERNAL'
+  /** Já existe uma resposta em andamento (uma por vez). */
+  | 'BUSY'
+  /** Nenhuma IA configurada. */
+  | 'NOT_CONFIGURED'
+  /** O atalho global escolhido já é usado por outro programa. */
+  | 'SHORTCUT_IN_USE';
 
 export interface IpcError {
   code: IpcErrorCode;
@@ -39,6 +51,15 @@ export interface IpcInvokeResponses {
   [IpcChannel.settingsGet]: Settings;
   [IpcChannel.settingsUpdate]: Settings;
   [IpcChannel.characterGetView]: CharacterView;
+  [IpcChannel.chatSend]: { requestId: string };
+  [IpcChannel.chatCancel]: { cancelled: boolean };
+  [IpcChannel.chatRetry]: { requestId: string };
+  [IpcChannel.chatConversationGet]: ConversationSnapshot;
+  [IpcChannel.chatConversationNew]: ConversationSnapshot;
+  [IpcChannel.chatHistoryClear]: { cleared: boolean };
+  [IpcChannel.onboardingComplete]: null;
+  [IpcChannel.windowsBalloonClose]: null;
+  [IpcChannel.clipboardWriteText]: null;
   [IpcChannel.windowsOpenSettings]: null;
   [IpcChannel.windowsHideClipster]: null;
   [IpcChannel.appInfo]: AppInfo;
@@ -52,6 +73,15 @@ export interface IpcEventPayloads {
   [IpcChannel.settingsChanged]: Settings;
   [IpcChannel.windowsSettingsNavigate]: SettingsSection;
   [IpcChannel.characterView]: CharacterView;
+  [IpcChannel.chatEvent]: ChatEvent;
+  [IpcChannel.balloonPlacement]: BalloonPlacement;
+  [IpcChannel.balloonShown]: BalloonShown;
+}
+
+export interface OnboardingResult {
+  personality: PersonalityId;
+  /** "Configurar IA agora" abre as Configurações e conta como "nenhum" aqui. */
+  provider: 'none' | 'demo';
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeResponses;
@@ -73,6 +103,31 @@ export interface ClipsterApi {
     setClickThrough(ignore: boolean): void;
     click(): void;
     openContextMenu(): void;
+  };
+  chat: {
+    send(text: string): Promise<IpcResult<{ requestId: string }>>;
+    cancel(requestId: string): Promise<IpcResult<{ cancelled: boolean }>>;
+    retry(): Promise<IpcResult<{ requestId: string }>>;
+    getConversation(): Promise<IpcResult<ConversationSnapshot>>;
+    newConversation(): Promise<IpcResult<ConversationSnapshot>>;
+    /** Apaga o histórico salvo e a conversa atual. Só pela janela de Configurações. */
+    clearHistory(): Promise<IpcResult<{ cleared: boolean }>>;
+    /** Usuário digitando: alimenta o estado `listening`. */
+    typing(): void;
+    onEvent(listener: (event: ChatEvent) => void): Unsubscribe;
+  };
+  onboarding: {
+    complete(result: OnboardingResult): Promise<IpcResult<null>>;
+  };
+  balloon: {
+    close(): Promise<IpcResult<null>>;
+    /** Altura do conteúdo, em DIP, para a janela acompanhar. */
+    resize(height: number): void;
+    onPlacement(listener: (placement: BalloonPlacement) => void): Unsubscribe;
+    onShown(listener: (shown: BalloonShown) => void): Unsubscribe;
+  };
+  clipboard: {
+    writeText(text: string): Promise<IpcResult<null>>;
   };
   windows: {
     openSettings(section?: SettingsSection): Promise<IpcResult<null>>;

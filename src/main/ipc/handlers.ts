@@ -1,4 +1,5 @@
-import type { AppCapabilities, AppInfo } from '../../shared/ipc/api';
+import type { ConversationSnapshot } from '../../shared/ai/conversation';
+import type { AppCapabilities, AppInfo, OnboardingResult } from '../../shared/ipc/api';
 import { IpcChannel } from '../../shared/ipc/channels';
 import {
   ClickThroughPayloadSchema,
@@ -11,6 +12,16 @@ import {
   type DragMovePayload
 } from '../../shared/ipc/payloads';
 import type { CharacterView } from '../../shared/character/states';
+import {
+  BalloonResizePayloadSchema,
+  ChatCancelPayloadSchema,
+  ChatSendPayloadSchema,
+  ChatTypingPayloadSchema,
+  ClipboardWritePayloadSchema,
+  HistoryClearPayloadSchema,
+  OnboardingCompletePayloadSchema
+} from '../../shared/schemas/conversation';
+import { AssistantError } from '../ai/assistantService';
 import type { Settings, SettingsPatch, SettingsSection } from '../../shared/schemas/settings';
 import type { Logger } from '../logging/logger';
 import { isSafeExternalUrl } from '../security/urls';
@@ -38,6 +49,25 @@ export interface IpcHandlerDeps {
     click: () => void;
     openContextMenu: () => void;
   };
+  chat: {
+    send: (text: string, requester: number) => { requestId: string };
+    cancel: (requestId: string) => boolean;
+    retry: (requester: number) => { requestId: string };
+    conversation: () => ConversationSnapshot;
+    newConversation: () => ConversationSnapshot;
+    clearHistory: () => Promise<void>;
+    typing: () => void;
+  };
+  onboarding: {
+    complete: (result: OnboardingResult) => void;
+  };
+  balloon: {
+    close: () => void;
+    resize: (height: number) => void;
+  };
+  clipboard: {
+    writeText: (text: string) => Promise<void>;
+  };
   app: {
     info: () => AppInfo;
     openSettings: (section: SettingsSection | undefined) => void;
@@ -51,6 +81,27 @@ export interface IpcHandlerDeps {
 const ALL_WINDOWS: readonly WindowRole[] = ['character', 'settings', 'balloon'];
 const UI_WINDOWS: readonly WindowRole[] = ['settings', 'balloon'];
 const CHARACTER_ONLY: readonly WindowRole[] = ['character'];
+const BALLOON_ONLY: readonly WindowRole[] = ['balloon'];
+const SETTINGS_ONLY: readonly WindowRole[] = ['settings'];
+
+/** Traduz os erros do AssistantService para o envelope do IPC. */
+function assistantCall<T>(call: () => T): T {
+  try {
+    return call();
+  } catch (error) {
+    if (!(error instanceof AssistantError)) throw error;
+    switch (error.code) {
+      case 'BUSY':
+        throw new IpcHandlerError('BUSY', error.message);
+      case 'NOT_CONFIGURED':
+        throw new IpcHandlerError('NOT_CONFIGURED', error.message);
+      case 'EMPTY':
+      case 'TOO_LONG':
+      case 'NOTHING_TO_RETRY':
+        throw new IpcHandlerError('INVALID_PAYLOAD', error.message);
+    }
+  }
+}
 
 export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   const { registry } = deps;
@@ -112,6 +163,81 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     { schema: NoPayloadSchema, roles: CHARACTER_ONLY },
     () => {
       deps.character.openContextMenu();
+    }
+  );
+
+  // ── Conversa (SPEC §8, §20.5): só o balão conversa; só as Configurações apagam o histórico.
+
+  registry.handle(
+    IpcChannel.chatSend,
+    { schema: ChatSendPayloadSchema, roles: BALLOON_ONLY },
+    ({ text }, { webContentsId }) => assistantCall(() => deps.chat.send(text, webContentsId))
+  );
+  registry.handle(
+    IpcChannel.chatCancel,
+    { schema: ChatCancelPayloadSchema, roles: BALLOON_ONLY },
+    ({ requestId }) => ({ cancelled: deps.chat.cancel(requestId) })
+  );
+  registry.handle(
+    IpcChannel.chatRetry,
+    { schema: NoPayloadSchema, roles: BALLOON_ONLY },
+    (_payload, { webContentsId }) => assistantCall(() => deps.chat.retry(webContentsId))
+  );
+  registry.handle(
+    IpcChannel.chatConversationGet,
+    { schema: NoPayloadSchema, roles: BALLOON_ONLY },
+    () => deps.chat.conversation()
+  );
+  registry.handle(
+    IpcChannel.chatConversationNew,
+    { schema: NoPayloadSchema, roles: BALLOON_ONLY },
+    () => deps.chat.newConversation()
+  );
+  registry.handle(
+    IpcChannel.chatHistoryClear,
+    { schema: HistoryClearPayloadSchema, roles: SETTINGS_ONLY },
+    async () => {
+      await deps.chat.clearHistory();
+      return { cleared: true };
+    }
+  );
+  registry.on(
+    IpcChannel.chatTyping,
+    { schema: ChatTypingPayloadSchema, roles: BALLOON_ONLY },
+    ({ typing }) => {
+      if (typing) deps.chat.typing();
+    }
+  );
+  registry.handle(
+    IpcChannel.onboardingComplete,
+    { schema: OnboardingCompletePayloadSchema, roles: BALLOON_ONLY },
+    (result) => {
+      deps.onboarding.complete(result);
+      return null;
+    }
+  );
+
+  registry.handle(
+    IpcChannel.windowsBalloonClose,
+    { schema: NoPayloadSchema, roles: BALLOON_ONLY },
+    () => {
+      deps.balloon.close();
+      return null;
+    }
+  );
+  registry.on(
+    IpcChannel.balloonResize,
+    { schema: BalloonResizePayloadSchema, roles: BALLOON_ONLY },
+    ({ height }) => {
+      deps.balloon.resize(height);
+    }
+  );
+  registry.handle(
+    IpcChannel.clipboardWriteText,
+    { schema: ClipboardWritePayloadSchema, roles: BALLOON_ONLY },
+    async ({ text }) => {
+      await deps.clipboard.writeText(text);
+      return null;
     }
   );
 

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+  RETURNING_USER,
   characterView,
   createUserDataDir,
   dispatchCharacterEvent,
@@ -58,18 +59,20 @@ test('primeira execução: começa feliz e volta para idle sozinho', async () =>
 });
 
 test('dorme após o tempo sem interação e acorda confuso ao ser clicado', async () => {
+  // Fora da primeira execução: o balão de boas-vindas aberto impediria o sono.
   const { app, characterPage } = await launchClipster(userDataDir, {
+    settings: RETURNING_USER,
     env: { CLIPSTER_E2E_SLEEP_AFTER_MS: '1500' }
   });
   try {
     await expectState(characterPage, 'sleeping', 8_000);
-    await expect(characterPage.getByTestId('character')).toHaveAttribute(
-      'aria-label',
-      /dormindo|sleeping/
-    );
+    await expect(characterPage.getByTestId('character')).toHaveAttribute('aria-label', /dormindo/);
 
+    // Clicar acorda (confuso) e abre o balão, onde o personagem comenta que acordou.
     await characterPage.mouse.click(80, 110);
     await expectState(characterPage, 'confused');
+    const balloon = await waitForPage(app, 'balloon.html');
+    await expect(balloon.locator('.notice')).toContainText('descansando os olhos');
     await expectState(characterPage, 'idle', 5_000);
     expect(await characterView(app)).toEqual({ state: 'idle', badge: false });
   } finally {

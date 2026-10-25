@@ -31,6 +31,43 @@ Em `npm run dev`, use o clique direito › **Pré-visualizar estado (dev)** para
 - [ ] Com o leitor de tela (Narrador), o personagem é anunciado com o estado ("Clipster (dormindo)…").
 - [ ] No app instalado, o submenu "Pré-visualizar estado (dev)" **não** aparece.
 
+## Balão de conversa (Fase 3)
+
+**Primeira execução** (apague `%APPDATA%\Clipster (dev)` antes, ou use o app instalado pela primeira vez):
+
+- [ ] Cerca de 1 s depois de o personagem aparecer, o balão de boas-vindas surge **sem tirar o foco** da janela em que você estava digitando.
+- [ ] Trocar o idioma no passo 1 traduz o balão na hora.
+- [ ] Passo 2: escolher Espirituoso destaca a opção; Passo 3: "Experimentar no modo demonstração" mostra o campo de texto e o selo **Demo**.
+- [ ] `Esc` no onboarding pula tudo; reabrindo o app, o onboarding não volta.
+
+**Conversa:**
+
+- [ ] Clicar no personagem abre o balão acima e à esquerda dele, com o rabicho apontando para o personagem, e o cursor já no campo de texto.
+- [ ] Clicar de novo fecha. O balão não fecha sozinho quando você clica em outro programa.
+- [ ] Arrastar o personagem com o balão aberto: o balão acompanha.
+- [ ] Personagem no canto superior esquerdo: o balão abre para baixo e para a direita, sem sair da tela.
+- [ ] Monitor secundário e escalas diferentes (100%/150%): o balão aparece no mesmo monitor do personagem, com o tamanho certo.
+- [ ] "Como eu renomeio um arquivo?" → personagem pensando → falando (resposta aparece aos poucos) → à disposição. A resposta fala do **Explorador de Arquivos** e da tecla **F2**.
+- [ ] Trocar para **Espirituoso** no balão → aparece "Modo Espirituoso ativado", o personagem fica contente; "Como faço uma captura de tela?" responde com **Windows + Shift + S** e uma observação leve.
+- [ ] Durante uma resposta: **Parar** (ou `Esc`) interrompe; a resposta fica marcada "(interrompida)".
+- [ ] `Shift+Enter` quebra a linha; `Enter` envia.
+- [ ] **Copiar** (ícone abaixo da resposta) e "Copiar código" colam certo no Bloco de Notas.
+- [ ] "Nova conversa" (ícone de lápis) limpa o balão.
+- [ ] Fechar o balão no meio de uma resposta e reabrir: a resposta terminou em segundo plano.
+- [ ] Configurações › IA = "Nenhuma": o balão mostra "Nenhuma IA configurada" com os dois botões.
+- [ ] Configurações › Aparência › "Tamanho do balão de conversa" 85% e 130%: tudo continua legível e cabe na tela.
+- [ ] Configurações › Geral › "Atalho para chamar o Clipster" ligado: `Ctrl+Shift+Espaço` abre e fecha o balão de qualquer programa.
+- [ ] Esconder o Clipster pela primeira vez: aparece a dica "Ainda estou aqui" junto ao relógio. Na segunda vez, não aparece.
+- [ ] Narrador: ao enviar, anuncia "Clipster está respondendo"; ao terminar, lê a resposta inteira uma vez (não palavra por palavra).
+- [ ] Alto contraste do Windows: o balão continua legível, com bordas visíveis.
+- [ ] Tema escuro e claro: o cabeçalho (visor) é escuro nos dois; o resto acompanha o tema.
+
+**Histórico:**
+
+- [ ] Configurações › Privacidade › "Salvar histórico" ligado → converse, saia e abra de novo: a conversa volta.
+- [ ] "Limpar histórico" pede confirmação, com o foco em **Cancelar**; confirmar apaga a conversa do balão também.
+- [ ] Desligar "Salvar histórico" pergunta se apaga o que já foi salvo.
+
 ## Arrasto e posição
 
 - [ ] Arrastar move o personagem suavemente, sem "pular".
@@ -44,8 +81,9 @@ Em `npm run dev`, use o clique direito › **Pré-visualizar estado (dev)** para
 ## Bandeja e menus
 
 - [ ] O ícone aparece na bandeja (pode estar em "Mostrar ícones ocultos").
-- [ ] Clique esquerdo no ícone mostra o Clipster.
+- [ ] Clique esquerdo no ícone mostra o Clipster (e abre o balão).
 - [ ] Clique direito mostra: Abrir, Personalidade, Sempre visível, Modo silencioso, Configurações…, Esconder/Mostrar, Sair.
+- [ ] Clique esquerdo no ícone abre e fecha o balão de conversa.
 - [ ] Clique direito no personagem mostra o menu de contexto, sem o menu de sistema da janela.
 - [ ] Trocar a personalidade pela bandeja reflete nas Configurações (se abertas).
 - [ ] "Sempre visível" desligado → o Clipster pode ficar atrás de outras janelas.

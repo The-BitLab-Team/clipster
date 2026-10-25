@@ -10,6 +10,10 @@ import {
   DEFAULT_SETTINGS,
   type Settings
 } from '../../src/shared/schemas/settings';
+import { AssistantService, type ChatTarget } from '../../src/main/ai/assistantService';
+import { DemoProvider } from '../../src/main/ai/providers/demo/demoProvider';
+import type { ChatEvent } from '../../src/shared/ai/conversation';
+import { PERSONALITIES } from '../../src/shared/personalities';
 import { FakeIpcMain, type FakeSender } from './fakes';
 
 /** Integração renderer → preload → IPC → main, com Electron substituído por dublês (SPEC §29.2). */
@@ -19,9 +23,15 @@ const SETTINGS: FakeSender = { id: 2, url: 'app://clipster/settings.html?section
 const STRANGER: FakeSender = { id: 3, url: 'https://evil.example/' };
 const SPOOFED: FakeSender = { id: 99, url: 'app://clipster/character.html' };
 const NO_FRAME: FakeSender = { id: 1, url: null };
+const BALLOON: FakeSender = { id: 4, url: 'app://clipster/balloon.html' };
 
 function setup(
-  roles: Record<number, WindowRole> = { 1: 'character', 2: 'settings', 3: 'settings' }
+  roles: Record<number, WindowRole> = {
+    1: 'character',
+    2: 'settings',
+    3: 'settings',
+    4: 'balloon'
+  }
 ) {
   const ipcMain = new FakeIpcMain();
   const sink = new MemorySink();
@@ -120,11 +130,36 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
   let settings: Settings;
   let deps: IpcHandlerDeps;
   let ipcMain: FakeIpcMain;
+  let assistant: AssistantService;
+  let chatEvents: { target: ChatTarget; event: ChatEvent }[];
 
   beforeEach(() => {
     const context = setup();
     ipcMain = context.ipcMain;
-    settings = DEFAULT_SETTINGS;
+    settings = { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, provider: 'demo' } };
+    chatEvents = [];
+    const demo = new DemoProvider({
+      timing: { thinkingMs: 0, chunkMs: 0 },
+      allowSimulations: true
+    });
+    assistant = new AssistantService({
+      resolveProvider: () => (settings.ai.provider === 'demo' ? demo : null),
+      model: () => 'demo',
+      personality: () => PERSONALITIES[settings.personality],
+      uiLocale: () => 'pt-BR',
+      environment: () => ({
+        appName: 'Clipster',
+        appVersion: '0.3.0',
+        platform: 'win32',
+        now: new Date('2026-10-24T12:00:00Z'),
+        timeZone: 'UTC'
+      }),
+      emit: (target, event) => chatEvents.push({ target, event }),
+      onCharacterEvent: () => undefined,
+      onConversationSettled: () => undefined,
+      logger: createLogger({ level: 'debug', sinks: [] }),
+      deltaFlushMs: 0
+    });
     deps = {
       registry: context.registry,
       capabilities: { launchAtLogin: false, clickThrough: true },
@@ -145,6 +180,18 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
         click: vi.fn(),
         openContextMenu: vi.fn()
       },
+      chat: {
+        send: (text, requester) => assistant.send(text, requester),
+        cancel: (requestId) => assistant.cancel(requestId),
+        retry: (requester) => assistant.retry(requester),
+        conversation: () => assistant.snapshot(),
+        newConversation: () => assistant.newConversation(),
+        clearHistory: vi.fn(() => Promise.resolve()),
+        typing: vi.fn()
+      },
+      onboarding: { complete: vi.fn() },
+      balloon: { close: vi.fn(), resize: vi.fn() },
+      clipboard: { writeText: vi.fn(() => Promise.resolve()) },
       app: {
         info: vi.fn(() => ({
           name: 'Clipster',
@@ -247,6 +294,115 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
       ok: false,
       error: { code: 'FORBIDDEN_SENDER' }
     });
+  });
+
+  it('conversa pelo balão com o Demo; troca de personalidade vale para a resposta seguinte', async () => {
+    const first = await ipcMain.invoke(IpcChannel.chatSend, BALLOON, {
+      text: 'Como eu renomeio um arquivo?'
+    });
+    expect(first).toMatchObject({ ok: true });
+    expect(JSON.stringify(first)).toMatch(/"requestId":"[^"]+"/);
+    await vi.waitFor(() => {
+      expect(chatEvents.at(-1)?.event.type).toBe('done');
+    });
+    expect(chatEvents.every((item) => item.target === BALLOON.id)).toBe(true);
+
+    await ipcMain.invoke(IpcChannel.settingsUpdate, BALLOON, { personality: 'witty' });
+    await ipcMain.invoke(IpcChannel.chatSend, BALLOON, { text: 'Como eu renomeio um arquivo?' });
+    await vi.waitFor(() => {
+      expect(assistant.snapshot().messages).toHaveLength(4);
+      expect(assistant.snapshot().activeRequestId).toBeNull();
+    });
+    const [, helpful, , witty] = assistant.snapshot().messages;
+    expect(helpful?.content).toContain('Dica: cuidado');
+    expect(witty?.content).toContain('cartório');
+
+    const conversation = await ipcMain.invoke(IpcChannel.chatConversationGet, BALLOON);
+    expect(conversation).toMatchObject({ ok: true, data: { activeRequestId: null } });
+  });
+
+  it('só o balão conversa; só as Configurações apagam o histórico', async () => {
+    for (const sender of [CHARACTER, SETTINGS, STRANGER]) {
+      expect(await ipcMain.invoke(IpcChannel.chatSend, sender, { text: 'oi' })).toMatchObject({
+        ok: false,
+        error: { code: 'FORBIDDEN_SENDER' }
+      });
+    }
+    expect(
+      await ipcMain.invoke(IpcChannel.chatHistoryClear, BALLOON, { confirmed: true })
+    ).toMatchObject({ ok: false, error: { code: 'FORBIDDEN_SENDER' } });
+    expect(
+      await ipcMain.invoke(IpcChannel.chatHistoryClear, SETTINGS, { confirmed: false })
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
+    expect(
+      await ipcMain.invoke(IpcChannel.chatHistoryClear, SETTINGS, { confirmed: true })
+    ).toEqual({ ok: true, data: { cleared: true } });
+    expect(deps.chat.clearHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('mensagens vazias, longas demais ou com campos extras são recusadas', async () => {
+    for (const payload of [{ text: '   ' }, { text: 'x'.repeat(4001) }, { text: 'oi', extra: 1 }]) {
+      expect(await ipcMain.invoke(IpcChannel.chatSend, BALLOON, payload)).toMatchObject({
+        ok: false,
+        error: { code: 'INVALID_PAYLOAD' }
+      });
+    }
+    expect(assistant.snapshot().messages).toEqual([]);
+  });
+
+  it('uma resposta por vez (BUSY) e aviso claro sem IA configurada (NOT_CONFIGURED)', async () => {
+    await ipcMain.invoke(IpcChannel.chatSend, BALLOON, { text: '/simular timeout' });
+    expect(await ipcMain.invoke(IpcChannel.chatSend, BALLOON, { text: 'oi' })).toMatchObject({
+      ok: false,
+      error: { code: 'BUSY' }
+    });
+    const active = assistant.snapshot().activeRequestId ?? '';
+    expect(await ipcMain.invoke(IpcChannel.chatCancel, BALLOON, { requestId: active })).toEqual({
+      ok: true,
+      data: { cancelled: true }
+    });
+
+    settings = { ...settings, ai: { ...settings.ai, provider: 'none' } };
+    expect(await ipcMain.invoke(IpcChannel.chatSend, BALLOON, { text: 'oi' })).toMatchObject({
+      ok: false,
+      error: { code: 'NOT_CONFIGURED' }
+    });
+  });
+
+  it('onboarding, balão e área de transferência validam o payload', async () => {
+    expect(
+      await ipcMain.invoke(IpcChannel.onboardingComplete, BALLOON, {
+        personality: 'witty',
+        provider: 'demo'
+      })
+    ).toEqual({ ok: true, data: null });
+    expect(deps.onboarding.complete).toHaveBeenCalledWith({
+      personality: 'witty',
+      provider: 'demo'
+    });
+    expect(
+      await ipcMain.invoke(IpcChannel.onboardingComplete, BALLOON, {
+        personality: 'witty',
+        provider: 'anthropic'
+      })
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
+
+    ipcMain.emit(IpcChannel.balloonResize, BALLOON, { height: 300 });
+    ipcMain.emit(IpcChannel.balloonResize, CHARACTER, { height: 300 });
+    ipcMain.emit(IpcChannel.balloonResize, BALLOON, { height: -5 });
+    expect(deps.balloon.resize).toHaveBeenCalledTimes(1);
+
+    expect(
+      await ipcMain.invoke(IpcChannel.clipboardWriteText, BALLOON, { text: 'copiado' })
+    ).toEqual({ ok: true, data: null });
+    expect(
+      await ipcMain.invoke(IpcChannel.clipboardWriteText, CHARACTER, { text: 'copiado' })
+    ).toMatchObject({ ok: false });
+    expect(deps.clipboard.writeText).toHaveBeenCalledTimes(1);
+
+    ipcMain.emit(IpcChannel.chatTyping, BALLOON, { typing: true });
+    ipcMain.emit(IpcChannel.chatTyping, BALLOON, { typing: false });
+    expect(deps.chat.typing).toHaveBeenCalledTimes(1);
   });
 
   it('todos os canais registrados estão na lista explícita', () => {

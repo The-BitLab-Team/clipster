@@ -1,7 +1,7 @@
 {
   "name": "clipster",
   "productName": "Clipster",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Clipster — um companheiro de desktop animado, com personalidade e foco em privacidade.",
   "author": "Marcos Land",
@@ -52,6 +52,8 @@
     "prettier": "^3.9.10",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.5",

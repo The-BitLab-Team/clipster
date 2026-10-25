@@ -42,6 +42,15 @@ export class TrayController {
     this.tray.setContextMenu(this.options.buildMenu());
   }
 
+  /**
+   * Dica junto ao ícone. Só no Windows, onde o ícone pode ficar escondido em "ícones ocultos";
+   * no macOS ele fica sempre visível na barra de menus e no Linux não há essa API.
+   */
+  showHint(title: string, content: string): void {
+    if (process.platform !== 'win32' || this.tray === null || this.tray.isDestroyed()) return;
+    this.tray.displayBalloon({ iconType: 'info', title, content, noSound: true });
+  }
+
   destroy(): void {
     if (this.tray !== null && !this.tray.isDestroyed()) this.tray.destroy();
     this.tray = null;

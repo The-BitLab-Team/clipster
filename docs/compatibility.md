@@ -2,7 +2,7 @@
 
 Legenda: **Testado** = verificado de fato · **Deve funcionar** = implementado, mas não verificado nessa plataforma · **Não testado** = sem verificação nem expectativa firme · **N/A** = não se aplica.
 
-Atualizado em 24/10/2026 (versão 0.2.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
+Atualizado em 24/10/2026 (versão 0.3.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
 
 ## Por recurso
 
@@ -24,12 +24,21 @@ Atualizado em 24/10/2026 (versão 0.2.0). Até aqui, os testes rodaram apenas nu
 | Estados do personagem (10 poses) | Deve funcionar | Deve funcionar | **Testado** (E2E + capturas de cada pose) | Não testado |
 | Sono por inatividade e acordar confuso | Deve funcionar | Deve funcionar | **Testado** (E2E com tempo curto) | Não testado |
 | Animações finitas em repouso; nenhuma com "Desligadas" | Deve funcionar | Deve funcionar | **Testado** (E2E com `document.getAnimations()`) | Não testado |
-| Zero requisições de rede | Deve funcionar | Deve funcionar | **Testado** (E2E + log de rede) | Não testado |
+| Balão: abre, fecha, segue o personagem, inverte perto das bordas | Deve funcionar | Deve funcionar | **Testado** (E2E + posição em unidade) | Não testado |
+| Primeira execução: balão de boas-vindas sem tirar o foco | Deve funcionar | Deve funcionar | **Testado** (E2E: nenhuma janela focada) | Não testado |
+| Conversa no modo Demo: streaming, Parar, erros simulados, nova conversa | Deve funcionar | Deve funcionar | **Testado** (E2E, cenário da §37) | Não testado |
+| Markdown seguro (sem HTML, sem imagens, links validados) | Deve funcionar | Deve funcionar | **Testado** (E2E com `/simular markdown`) | Não testado |
+| Copiar para a área de transferência | Deve funcionar | Deve funcionar | **Testado** (E2E, X11) | Não testado |
+| Histórico opcional (restaurar, limpar, desligar) | Deve funcionar | Deve funcionar | **Testado** (E2E) | Não testado |
+| Atalho global | Deve funcionar | Deve funcionar | Deve funcionar (não testado no E2E) | Não funciona* |
+| Dica ao esconder (junto ao ícone da bandeja) | Deve funcionar | N/A | N/A | N/A |
+| Leitor de tela anuncia a resposta | Deve funcionar (Narrador) | Deve funcionar (VoiceOver) | Não testado | Não testado |
+| Zero requisições de rede (ao abrir e conversando no Demo) | Deve funcionar | Deve funcionar | **Testado** (E2E + log de rede) | Não testado |
 | Iniciar com o sistema | Deve funcionar (só instalado) | Deve funcionar (só instalado) | N/A no MVP | N/A no MVP |
 | Pacote instalável | Gerado pelo workflow `build-artifacts` ou `npm run package:win` (não testado) | Não testado | **Testado**: AppImage gerado e iniciado | — |
 | Electron Fuses aplicados | Deve funcionar | Deve funcionar | **Testado** (`@electron/fuses read`) | — |
 
-\* No Wayland, o Electron não pode posicionar janelas nem ler o cursor global. Contorno a validar: iniciar com `--ozone-platform=x11` (XWayland).
+\* No Wayland, o Electron não pode posicionar janelas, ler o cursor global nem registrar atalhos globais. Contorno a validar: iniciar com `--ozone-platform=x11` (XWayland).
 
 ## Medições
 
@@ -41,4 +50,5 @@ Atualizado em 24/10/2026 (versão 0.2.0). Até aqui, os testes rodaram apenas nu
 
 ## Observações
 
+- Fase 3: a suíte E2E inteira (26 testes) passou 3 vezes seguidas (78/78), sem tentativas extras.
 - Uma execução da suíte E2E falhou uma vez, no teste de arrasto, enquanto havia processos do Electron de execuções manuais ainda abertos no contêiner. Em seguida, passou 12/12 isolado e 28/28 com a suíte inteira repetida 4 vezes. O CI tenta de novo uma vez automaticamente.

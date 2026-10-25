@@ -16,7 +16,6 @@ export const ptBR = {
 
   'menu.open': 'Abrir Clipster',
   'menu.talk': 'Conversar com o Clipster',
-  'menu.talkSoon': 'Conversar com o Clipster (em breve)',
   'menu.personality': 'Personalidade',
   'menu.alwaysOnTop': 'Sempre visível',
   'menu.quietMode': 'Modo silencioso',
@@ -26,6 +25,9 @@ export const ptBR = {
   'menu.hideShort': 'Esconder',
   'menu.quit': 'Sair',
   'menu.previewState': 'Pré-visualizar estado (dev)',
+  'tip.hidden.title': 'Ainda estou aqui',
+  'tip.hidden.body':
+    'Me chame pela bandeja, perto do relógio. No Windows 11, o ícone pode estar em “Mostrar ícones ocultos” (^).',
   'tray.tooltip': 'Clipster',
 
   'personality.helpful.name': 'Prestativo',
@@ -65,9 +67,6 @@ export const ptBR = {
   'settings.general.sleepAfter.30': '30 minutos',
   'settings.general.sleepAfter.0': 'Nunca',
 
-  'settings.ai.placeholder':
-    'A conexão com uma IA chega em uma próxima versão. Por enquanto, nada sai do seu computador.',
-
   'settings.personality.hint':
     'A personalidade muda o tom das respostas, não o que o Clipster sabe fazer.',
 
@@ -84,8 +83,40 @@ export const ptBR = {
 
   'settings.privacy.summary':
     'O Clipster não observa sua tela, teclado, área de transferência, arquivos ou outros programas.',
-  'settings.privacy.local': 'Configurações e posição ficam guardadas só neste computador.',
+  'settings.privacy.local':
+    'Configurações, posição e, se você ligar, o histórico ficam só neste computador.',
   'settings.privacy.noTelemetry': 'Sem telemetria: nada é enviado para fora.',
+
+  'settings.general.shortcut': 'Atalho para chamar o Clipster',
+  'settings.general.shortcut.hint': '{accelerator}, de qualquer programa: abre ou fecha o balão.',
+  'settings.general.shortcut.space': 'Espaço',
+  'settings.general.shortcut.inUse': 'Esse atalho já está em uso por outro programa.',
+  'settings.ai.provider': 'IA usada nas conversas',
+  'settings.ai.provider.none': 'Nenhuma',
+  'settings.ai.provider.demo': 'Modo demonstração',
+  'settings.ai.demoHint': 'Respostas de exemplo, pré-programadas: sem IA e sem internet.',
+  'settings.ai.noneHint': 'Sem IA, o balão mostra como configurar uma.',
+  'settings.ai.comingSoon':
+    'A conexão com Ollama, LM Studio, Claude e OpenAI chega na próxima versão. Até lá, nada sai do seu computador.',
+  'settings.appearance.chatScale': 'Tamanho do balão de conversa',
+  'settings.privacy.saveHistory': 'Salvar histórico de conversas',
+  'settings.privacy.saveHistory.hint':
+    'Fica só neste computador. Desligado, a conversa dura até "Nova conversa" ou até fechar o app.',
+  'settings.privacy.retention': 'Manter histórico por',
+  'settings.privacy.retention.7': '7 dias',
+  'settings.privacy.retention.30': '30 dias',
+  'settings.privacy.retention.90': '90 dias',
+  'settings.privacy.retention.0': 'Sempre',
+  'settings.privacy.clear': 'Limpar histórico',
+  'settings.privacy.clear.confirm':
+    'Apagar todo o histórico de conversas, inclusive a conversa atual? Isso não pode ser desfeito.',
+  'settings.privacy.clear.cancel': 'Cancelar',
+  'settings.privacy.clear.confirmButton': 'Apagar histórico',
+  'settings.privacy.cleared': 'Histórico apagado.',
+  'settings.privacy.disabled.ask': 'Histórico desligado. Quer apagar também o que já foi salvo?',
+  'settings.privacy.disabled.keep': 'Manter',
+  'settings.privacy.disabled.delete': 'Apagar',
+  'settings.privacy.demoOffline': 'O modo demonstração funciona sem internet.',
 
   'settings.about.version': 'Versão',
   'settings.about.runtime': 'Electron {electron} · Chromium {chrome}',
@@ -93,5 +124,96 @@ export const ptBR = {
   'settings.about.licenseValue': 'A definir',
   'settings.about.repository': 'Repositório',
   'settings.about.openLogs': 'Abrir pasta de logs',
-  'settings.about.disclaimer': 'Não afiliado à Microsoft.'
+  'settings.about.disclaimer': 'Não afiliado à Microsoft.',
+
+  'balloon.title': 'Clipster',
+  'balloon.region': 'Conversa com o Clipster',
+  'balloon.demoBadge': 'Demo',
+  'balloon.demoBadge.hint': 'Modo demonstração: respostas de exemplo, sem IA.',
+  'balloon.personality.label': 'Personalidade',
+  'balloon.newConversation': 'Nova conversa',
+  'balloon.close': 'Fechar',
+  'balloon.messages.label': 'Mensagens',
+  'balloon.you': 'Você',
+  'balloon.placeholder': 'Pergunte algo ao Clipster…',
+  'balloon.input.label': 'Mensagem para o Clipster',
+  'balloon.input.hint': 'Enter envia; Shift+Enter quebra a linha.',
+  'balloon.send': 'Enviar',
+  'balloon.stop': 'Parar',
+  'balloon.thinking': 'Clipster está pensando…',
+  'balloon.responding': 'Clipster está respondendo',
+  'balloon.interrupted': '(interrompida)',
+  'balloon.emptyReply': '(sem resposta)',
+  'balloon.copy': 'Copiar',
+  'balloon.copied': 'Copiado!',
+  'balloon.copyCode': 'Copiar código',
+  'balloon.charCount': '{count} de {max} caracteres',
+  'balloon.image': '[imagem: {alt}]',
+  'balloon.imageNoAlt': '[imagem]',
+  'balloon.link.title': 'Abre {host} no navegador',
+  'balloon.noProvider.title': 'Nenhuma IA configurada',
+  'balloon.noProvider.body': 'Para conversar, configure uma IA ou experimente o modo demonstração.',
+  'balloon.noProvider.configure': 'Configurar IA',
+  'balloon.noProvider.demo': 'Usar modo demonstração',
+  'balloon.suggestions.label': 'Experimente perguntar',
+  'balloon.suggestion.rename': 'Como eu renomeio um arquivo?',
+  'balloon.suggestion.screenshot': 'Como faço uma captura de tela?',
+  'balloon.suggestion.time': 'Que horas são?',
+  'balloon.errorCode': 'Código: {code}',
+  'balloon.retryIn': 'Tentar de novo em {seconds} s',
+  'balloon.sendFailed': 'Não foi possível enviar: {message}',
+
+  'error.PROVIDER_NOT_CONFIGURED': 'Para conversar de verdade, configure uma IA.',
+  'error.PROVIDER_NOT_CONFIGURED.witty':
+    'Sem uma IA configurada, eu sou só um prendedor de papel simpático. Configure uma ou use o modo demonstração.',
+  'error.AUTH_INVALID': 'A chave de API foi recusada. Confira-a nas Configurações.',
+  'error.MODEL_NOT_FOUND': 'O modelo escolhido não está disponível. Escolha outro.',
+  'error.RATE_LIMITED': 'Muitas solicitações seguidas. Tente de novo em {seconds} s.',
+  'error.RATE_LIMITED.witty':
+    'Uma de cada vez: foram muitas solicitações seguidas. Tente de novo em {seconds} s.',
+  'error.QUOTA_OR_BILLING': 'O limite de uso ou de cobrança da conta foi atingido.',
+  'error.PROVIDER_OVERLOADED': 'O serviço de IA está sobrecarregado. Tente daqui a pouco.',
+  'error.PROVIDER_OVERLOADED.witty':
+    'O serviço de IA está sobrecarregado (não fui eu). Tente daqui a pouco.',
+  'error.TIMEOUT': 'A resposta demorou demais.',
+  'error.TIMEOUT.witty': 'A resposta demorou demais. Até eu cansei de esperar.',
+  'error.OFFLINE':
+    'Não consegui me conectar. Verifique a internet ou se o servidor local está aberto.',
+  'error.OFFLINE.witty':
+    'Não consegui me conectar. Confira a internet ou se o servidor local está aberto; daqui de dentro eu não alcanço o cabo.',
+  'error.CONTEXT_TOO_LONG': 'A conversa ficou longa demais.',
+  'error.CONTEXT_TOO_LONG.witty':
+    'A conversa ficou longa demais até para mim. Vamos começar uma nova?',
+  'error.SECURE_STORAGE_UNAVAILABLE':
+    'Não há cofre seguro neste sistema; a chave não ficaria protegida.',
+  'error.STORAGE_RESET': 'Algumas configurações foram restauradas para o padrão.',
+  'error.STORAGE_RESET.witty':
+    'Algumas configurações se perderam e voltaram ao padrão. Acontece nas melhores famílias.',
+  'error.IPC_FAILURE': 'Algo deu errado aqui dentro. Tente de novo.',
+  'error.UNKNOWN': 'Ocorreu um erro inesperado (código {code}).',
+  'error.RATE_LIMITED.noDelay': 'Muitas solicitações seguidas. Tente de novo daqui a pouco.',
+  'error.action.configureAi': 'Configurar IA',
+  'error.action.useDemo': 'Modo demonstração',
+  'error.action.openSettings': 'Abrir Configurações',
+  'error.action.chooseModel': 'Escolher modelo',
+  'error.action.retry': 'Tentar de novo',
+  'error.action.newConversation': 'Nova conversa',
+
+  'onboarding.label': 'Primeiros passos',
+  'onboarding.step': 'Passo {current} de {total}',
+  'onboarding.skip': 'Pular',
+  'onboarding.next': 'Continuar',
+  'onboarding.greeting.title': 'Oi! Eu sou o Clipster.',
+  'onboarding.greeting.body': 'Fico por aqui e ajudo quando você precisar.',
+  'onboarding.language': 'Idioma',
+  'onboarding.personality.title': 'Como você prefere que eu fale?',
+  'onboarding.personality.body': 'Dá para trocar quando quiser, aqui no balão ou na bandeja.',
+  'onboarding.ai.title': 'Por último, a IA',
+  'onboarding.ai.body':
+    'Para conversar de verdade, eu me conecto a uma IA que você escolher. Enquanto isso, dá para experimentar o modo demonstração.',
+  'onboarding.ai.demo': 'Experimentar no modo demonstração',
+  'onboarding.ai.configure': 'Configurar IA agora',
+  'onboarding.ai.later': 'Depois',
+  'onboarding.ai.permissions':
+    'Algumas funções futuras vão pedir sua permissão antes de acessar algo do computador. Você fica no controle.'
 } as const;

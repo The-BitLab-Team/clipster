@@ -1,24 +1,27 @@
 # Arquitetura
 
-Visão do código como está na versão 0.2.0 (Fases 0, 1 e 2). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
+Visão do código como está na versão 0.3.0 (Fases 0 a 3). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
 
 ## Processos
 
 ```
-┌──────────────────────────── main process (Node + Electron) ─────────────────────────────┐
-│ index.ts ─ instância única, protocolo app://, endurecimento, logger, SettingsStore       │
-│ AppController ─ comandos (menus, IPC, testes) → efeitos; reage a mudanças de config     │
-│   ├─ CharacterWindow  (transparente, arrasto, clique-através, posição)                  │
-│   ├─ SettingsWindowManager (sob demanda)                                                 │
-│   ├─ TrayController + menuFactory (bandeja e menu de contexto vêm da mesma fábrica)     │
-│   └─ IpcRegistry + handlers (lista explícita de canais, remetente e payload validados)  │
-└───────────────▲─────────────────────────────────────────────────────────▲───────────────┘
-                │ IPC (invoke / send / eventos)                           │
-        ┌───────┴────────┐                                       ┌────────┴───────┐
-        │ preload        │  window.clipster (API mínima)         │ preload        │
-        │ renderer:      │                                       │ renderer:      │
-        │ character.html │  TypeScript puro + SVG + CSS          │ settings.html  │  React
-        └────────────────┘                                       └────────────────┘
+┌────────────────────────────── main process (Node + Electron) ──────────────────────────────┐
+│ index.ts ─ instância única, protocolo app://, endurecimento, logger, SettingsStore          │
+│ AppController ─ comandos (menus, IPC, atalho, testes) → efeitos; reage a mudanças de config│
+│   ├─ CharacterWindow + CharacterStateHost (máquina de estados, 2 timers)                   │
+│   ├─ BalloonWindow (pré-criada, segue o personagem, altura dinâmica)                       │
+│   ├─ AssistantService ─ ContextBuilder ─ PersonalityManager ─ AIProvider (Demo)            │
+│   ├─ HistoryStore (só com "Salvar histórico")                                              │
+│   ├─ SettingsWindowManager (sob demanda)                                                   │
+│   ├─ TrayController + menuFactory (bandeja e menu de contexto vêm da mesma fábrica)        │
+│   └─ IpcRegistry + handlers (lista explícita de canais, remetente e payload validados)     │
+└──────▲───────────────────────────────▲───────────────────────────────────▲──────────────────┘
+       │ IPC                           │ IPC (chat:*, balloon:*)           │ IPC
+┌──────┴─────────┐            ┌────────┴─────────┐                ┌────────┴───────┐
+│ character.html │            │ balloon.html     │                │ settings.html  │
+│ TS + SVG + CSS │            │ React + Markdown │                │ React          │
+└────────────────┘            └──────────────────┘                └────────────────┘
+        (cada janela tem o mesmo preload: window.clipster, API mínima)
 ```
 
 ## Pastas
@@ -27,16 +30,19 @@ Visão do código como está na versão 0.2.0 (Fases 0, 1 e 2). A especificaçã
 |-------|----------|
 | `src/main/app` | `controller.ts` (orquestração), `protocol.ts`/`protocolPath.ts` (`app://`), `loginItem.ts`, `pages.ts`, `applicationMenu.ts`, `testHooks.ts` |
 | `src/main/character` | `characterStateHost.ts`: roda a máquina de estados com os timers |
-| `src/main/windows` | `characterWindow.ts`, `settingsWindow.ts`, `placement.ts` (funções puras de posição), `displays.ts`, `webPreferences.ts` |
+| `src/main/ai` | `assistantService.ts` (conversa, requisição única, tempos-limite, agrupamento de pedaços), `contextBuilder.ts`, `personalityManager.ts`, `errors.ts`, `types.ts` (`AIProvider`), `providers/demo/` (repertório, simulações) |
+| `src/main/windows` | `characterWindow.ts`, `balloonWindow.ts`, `settingsWindow.ts`, `placement.ts` e `balloonPlacement.ts` (funções puras de posição), `displays.ts`, `webPreferences.ts` |
 | `src/main/menus` | `menuFactory.ts` (descrição pura dos menus) e `electronMenu.ts` (conversão) |
 | `src/main/ipc` | `registry.ts` (validação central) e `handlers.ts` (canais do Apêndice C) |
-| `src/main/storage` | `settingsStore.ts`, `settingsRecovery.ts` (leitura tolerante e migrações), `atomicWrite.ts` |
+| `src/main/storage` | `settingsStore.ts`, `settingsRecovery.ts` (leitura tolerante e migrações), `historyStore.ts`, `atomicWrite.ts` |
 | `src/main/security` | `csp.ts`, `hardening.ts`, `urls.ts` |
 | `src/main/logging` | `logger.ts` (JSON Lines, rotação) e `redact.ts` |
 | `src/preload` | `api.ts` (constrói `window.clipster`) e `index.ts` |
 | `src/renderer/character` | Página do personagem: `controller.ts` (interface), `svgRigController.ts` (adaptador do formato svg-rig), `packs/` (pacote de arte em uso) |
+| `src/renderer/balloon` | Balão (React): `BalloonApp`, `Header` (visor), `Conversation`, `Composer`, `Onboarding`, `Markdown` (seguro), `chatState.ts` (estado puro, testado) e `chatClient.ts` |
 | `src/renderer/settings` | Página de Configurações (React) |
-| `src/shared` | Esquemas Zod, i18n, canais e tipos de IPC, constantes, utilitários puros; `character/` com os estados e a máquina de estados |
+| `src/renderer/lib` | `settingsClient.ts` (configurações espelhadas do main), `errorReporting.ts` |
+| `src/shared` | Esquemas Zod, i18n, canais e tipos de IPC, constantes, utilitários puros; `character/` (estados e máquina de estados), `ai/` (tipos da conversa), `personalities/` (prompts e falas), `errors/` (códigos e textos de erro) |
 | `assets/` | SVGs originais. `assets/character/<pacote>/`: `manifest.json`, rig SVG e `poses.css` |
 | `resources/` | PNGs usados em tempo de execução (bandeja, ícone da janela) |
 | `build/` | Ícone usado pelo electron-builder |
@@ -71,7 +77,32 @@ evento (clique, arrasto, personalidade, inatividade, IA…)
   → janela: controller.setView() → data-state / data-badge no #character → poses.css
 ```
 
-Eventos ligados hoje: `APP_READY`, `CLICK`, `DRAG_START`/`DRAG_END`, `SUCCESS_FEEDBACK` (troca de personalidade), `INACTIVITY_TIMEOUT`, `PREVIEW` (dev). Os de IA, balão e avisos já existem na máquina e serão ligados nas Fases 3–5.
+Eventos ligados hoje: `APP_READY`, `CLICK`, `DRAG_START`/`DRAG_END`, `SUCCESS_FEEDBACK` (troca de personalidade e segunda instância), `INACTIVITY_TIMEOUT`, `BALLOON_OPENED`/`BALLOON_CLOSED`, `USER_TYPING`, `MESSAGE_SENT`, `FIRST_TOKEN`, `STREAM_DONE`, `CANCELLED`, `AI_ERROR`, `PREVIEW` (dev). Os de aviso (`NOTIFICATION*`) serão ligados quando houver notificações.
+
+### Uma mensagem (SPEC §17.2)
+
+```
+Balão: Enter → chat:send { text }                (só a janela de papel "balloon")
+  → AssistantService.send
+      → valida (vazio, 4.000 caracteres, uma por vez, provider configurado)
+      → guarda a pergunta + resposta vazia ("streaming") → chat:event start → MESSAGE_SENT
+      → ContextBuilder: base + personalidade + idioma + ambiente + histórico (20 msgs / 12k chars)
+      → AIProvider.streamResponse (Demo: repertório por palavra-chave, idioma, sistema, tom)
+      → pedaços agrupados a cada 40 ms → chat:event delta   (1º pedaço → FIRST_TOKEN)
+      → fim → chat:event done → STREAM_DONE → histórico (se ligado)
+  Parar → chat:cancel → AbortController → "interrompida" → CANCELLED
+  30 s sem 1º pedaço ou 120 s no total → TIMEOUT → chat:event error → AI_ERROR
+```
+
+O balão nunca recebe texto de erro do main, só o código (`ChatErrorInfo`); a frase sai do i18n, no tom da personalidade quando a §23 permite.
+
+### Balão
+
+1. Pré-criado escondido 1,5 s depois de iniciar; depois só é mostrado/escondido.
+2. Abrir por ação do usuário (clique, menu, bandeja, atalho) → `show()` + foco no campo. Primeira execução → `showInactive()`, sem foco.
+3. O balão mede a própria altura (`ResizeObserver`) e manda `balloon:resize`; o main limita ao máximo, calcula a posição com `placeBalloon` (função pura: acima e à esquerda; inverte se faltar espaço; limita à área útil) e devolve `balloon:placement` (lado e posição do rabicho).
+4. Arrasto do personagem, troca de monitores e mudança de escala → reposiciona.
+5. Fechar (botão, `Esc`, `Alt+F4`) só esconde; uma resposta em andamento continua.
 
 ### Mudança de configuração
 
@@ -83,17 +114,26 @@ Eventos `display-added`, `display-removed` e `display-metrics-changed` (com debo
 
 ## Contrato de IPC
 
-Canais em `src/shared/ipc/channels.ts`, payloads em `payloads.ts`, tipos de resposta por canal em `api.ts` (`IpcInvokeResponses`). Papéis autorizados por canal em `src/main/ipc/handlers.ts`:
+Canais em `src/shared/ipc/channels.ts`, payloads em `payloads.ts` e `schemas/conversation.ts`, tipos de resposta por canal em `api.ts` (`IpcInvokeResponses`). Papéis autorizados por canal em `src/main/ipc/handlers.ts`:
 
 | Canal | Tipo | Janelas autorizadas |
 |-------|------|---------------------|
 | `settings:get` | invoke | todas |
-| `settings:update` | invoke | configurações (e o futuro balão) |
+| `settings:update` | invoke | configurações e balão |
 | `character:*` (arrasto, clique, menu, clique-através) | send | personagem |
 | `character:getView` | invoke | personagem |
-| `character:view` | evento main → renderer | — |
+| `character:view` | evento main → personagem | — |
+| `chat:send`, `chat:cancel`, `chat:retry`, `chat:conversation:get`, `chat:conversation:new` | invoke | balão |
+| `chat:typing` | send | balão |
+| `chat:event` | evento main → balão | — |
+| `chat:history:clear` | invoke (`{ confirmed: true }`) | configurações |
+| `onboarding:complete` | invoke | balão |
+| `windows:balloon:close` | invoke | balão |
+| `balloon:resize` | send | balão |
+| `balloon:placement`, `balloon:shown` | evento main → balão | — |
+| `clipboard:writeText` | invoke | balão |
 | `windows:settings:open`, `windows:hideClipster`, `app:info`, `app:quit` | invoke | todas |
-| `shell:openExternal` | invoke | configurações (e o futuro balão) |
+| `shell:openExternal` | invoke | configurações e balão |
 | `diagnostics:openLogs` | invoke | configurações |
 | `log:write` | send | todas |
 | `settings:changed`, `windows:settings:navigate` | evento main → renderer | — |

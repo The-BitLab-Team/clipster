@@ -9,9 +9,13 @@ describe('API do preload (window.clipster)', () => {
     const api = createClipsterApi(new FakeIpcRenderer());
     expect(Object.keys(api).sort()).toEqual([
       'app',
+      'balloon',
       'character',
+      'chat',
+      'clipboard',
       'diagnostics',
       'log',
+      'onboarding',
       'settings',
       'shell',
       'windows'
@@ -40,6 +44,20 @@ describe('API do preload (window.clipster)', () => {
     api.character.click();
     api.character.openContextMenu();
     api.log.write('info', 'oi');
+    await api.chat.send('oi');
+    await api.chat.cancel('r1');
+    await api.chat.retry();
+    await api.chat.getConversation();
+    await api.chat.newConversation();
+    await api.chat.clearHistory();
+    api.chat.typing();
+    api.chat.onEvent(() => undefined);
+    await api.onboarding.complete({ personality: 'helpful', provider: 'demo' });
+    await api.balloon.close();
+    api.balloon.resize(240.6);
+    api.balloon.onPlacement(() => undefined);
+    api.balloon.onShown(() => undefined);
+    await api.clipboard.writeText('texto');
 
     const known = new Set<string>(Object.values(IpcChannel));
     for (const call of [...ipc.invoked, ...ipc.sent]) expect(known.has(call.channel)).toBe(true);
@@ -53,6 +71,11 @@ describe('API do preload (window.clipster)', () => {
       channel: IpcChannel.characterDragMove,
       args: [{ dx: 1, dy: 2 }]
     });
+    expect(ipc.invoked).toContainEqual({
+      channel: IpcChannel.chatHistoryClear,
+      args: [{ confirmed: true }]
+    });
+    expect(ipc.sent).toContainEqual({ channel: IpcChannel.balloonResize, args: [{ height: 241 }] });
   });
 
   it('não repassa campos extras no arrasto', () => {

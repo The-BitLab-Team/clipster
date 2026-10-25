@@ -87,10 +87,14 @@ export function parseStoredSettings(raw: unknown): ParsedSettings {
   if (firstRunRaw !== undefined && typeof firstRunRaw !== 'boolean')
     issues.push('firstRunCompleted');
 
+  const hideTipRaw = migrated.hideTipShown;
+  if (hideTipRaw !== undefined && typeof hideTipRaw !== 'boolean') issues.push('hideTipShown');
+
   const candidate: Settings = {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     firstRunCompleted:
       typeof firstRunRaw === 'boolean' ? firstRunRaw : DEFAULT_SETTINGS.firstRunCompleted,
+    hideTipShown: typeof hideTipRaw === 'boolean' ? hideTipRaw : DEFAULT_SETTINGS.hideTipShown,
     general: recoverSection(
       'general',
       GeneralSettingsSchema,

@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { CHARACTER_SCALE } from '../../shared/constants/ui';
+import { CHAT_SCALE } from '../../shared/ui/balloon';
 import type { Translator } from '../../shared/i18n';
 import type { AppInfo } from '../../shared/ipc/api';
 import type {
   AnimationPreference,
+  HistoryRetentionDays,
   LanguagePreference,
   PersonalityId,
   Settings,
@@ -30,6 +33,33 @@ const SLEEP_BY_VALUE: Readonly<Record<SleepOptionValue, SleepAfterMinutes>> = {
 
 function sleepOptionValue(minutes: SleepAfterMinutes): SleepOptionValue {
   return `${minutes}`;
+}
+
+const RETENTION_OPTIONS: readonly HistoryRetentionDays[] = [7, 30, 90, 0];
+type RetentionValue = `${HistoryRetentionDays}`;
+const RETENTION_BY_VALUE: Readonly<Record<RetentionValue, HistoryRetentionDays>> = {
+  '0': 0,
+  '7': 7,
+  '30': 30,
+  '90': 90
+};
+
+function retentionValue(days: HistoryRetentionDays): RetentionValue {
+  return `${days}`;
+}
+
+/** "CommandOrControl+Shift+Space" → "Ctrl + Shift + Espaço" (ou ⌘ no macOS). */
+export function formatAccelerator(accelerator: string, platform: string, t: Translator): string {
+  return accelerator
+    .split('+')
+    .map((part) => {
+      if (part === 'CommandOrControl' || part === 'CmdOrCtrl') {
+        return platform === 'darwin' ? '⌘' : 'Ctrl';
+      }
+      if (part === 'Space') return t('settings.general.shortcut.space');
+      return part;
+    })
+    .join(' + ');
 }
 
 export function GeneralSection({ settings, info, t, save }: SectionProps) {
@@ -89,6 +119,17 @@ export function GeneralSection({ settings, info, t, save }: SectionProps) {
           save({ general: { quietMode } });
         }}
       />
+      <ToggleField
+        id="global-shortcut"
+        label={t('settings.general.shortcut')}
+        hint={t('settings.general.shortcut.hint', {
+          accelerator: formatAccelerator(general.globalShortcut.accelerator, info.platform, t)
+        })}
+        checked={general.globalShortcut.enabled}
+        onChange={(enabled) => {
+          save({ general: { globalShortcut: { ...general.globalShortcut, enabled } } });
+        }}
+      />
       <SelectField
         id="sleep-after"
         label={t('settings.general.sleepAfter')}
@@ -106,11 +147,28 @@ export function GeneralSection({ settings, info, t, save }: SectionProps) {
   );
 }
 
-export function AiSection({ t }: SectionProps) {
+export function AiSection({ settings, t, save }: SectionProps) {
+  const options: { value: 'none' | 'demo'; label: string }[] = [
+    { value: 'none', label: t('settings.ai.provider.none') },
+    { value: 'demo', label: t('settings.ai.provider.demo') }
+  ];
+  const current = settings.ai.provider === 'demo' ? 'demo' : 'none';
   return (
-    <Card>
-      <p className="prose">{t('settings.ai.placeholder')}</p>
-    </Card>
+    <>
+      <Card>
+        <SelectField
+          id="ai-provider"
+          label={t('settings.ai.provider')}
+          hint={current === 'demo' ? t('settings.ai.demoHint') : t('settings.ai.noneHint')}
+          value={current}
+          options={options}
+          onChange={(provider) => {
+            save({ ai: { provider } });
+          }}
+        />
+      </Card>
+      <p className="field__hint section-note">{t('settings.ai.comingSoon')}</p>
+    </>
   );
 }
 
@@ -188,6 +246,18 @@ export function AppearanceSection({ settings, t, save }: SectionProps) {
           save({ appearance: { characterScale: Math.round(characterScale * 100) / 100 } });
         }}
       />
+      <RangeField
+        id="chat-scale"
+        label={t('settings.appearance.chatScale')}
+        min={CHAT_SCALE.min}
+        max={CHAT_SCALE.max}
+        step={CHAT_SCALE.step}
+        value={appearance.chatScale}
+        format={(value) => `${Math.round(value * 100).toString()}%`}
+        onChange={(chatScale) => {
+          save({ appearance: { chatScale: Math.round(chatScale * 100) / 100 } });
+        }}
+      />
       <SelectField
         id="animations"
         label={t('settings.appearance.animations')}
@@ -210,15 +280,133 @@ export function AppearanceSection({ settings, t, save }: SectionProps) {
   );
 }
 
-export function PrivacySection({ t }: SectionProps) {
+type PrivacyPrompt = 'none' | 'confirmClear' | 'askDeleteAfterDisable' | 'cleared';
+
+export function PrivacySection({ settings, t, save }: SectionProps) {
+  const { privacy } = settings;
+  const [prompt, setPrompt] = useState<PrivacyPrompt>('none');
+  const [clearError, setClearError] = useState<string | null>(null);
+
+  const clear = (): void => {
+    void window.clipster.chat.clearHistory().then((result) => {
+      if (result.ok) {
+        setClearError(null);
+        setPrompt('cleared');
+      } else {
+        setClearError(t('settings.saveError', { message: result.error.message }));
+      }
+    });
+  };
+
   return (
-    <Card>
-      <ul className="checklist">
-        <li>{t('settings.privacy.summary')}</li>
-        <li>{t('settings.privacy.local')}</li>
-        <li>{t('settings.privacy.noTelemetry')}</li>
-      </ul>
-    </Card>
+    <>
+      <Card>
+        <ToggleField
+          id="save-history"
+          label={t('settings.privacy.saveHistory')}
+          hint={t('settings.privacy.saveHistory.hint')}
+          checked={privacy.saveHistory}
+          onChange={(saveHistory) => {
+            save({ privacy: { saveHistory } });
+            // Ao desligar, perguntar se apaga o que já foi salvo (SPEC §12).
+            setPrompt(saveHistory ? 'none' : 'askDeleteAfterDisable');
+          }}
+        />
+        {privacy.saveHistory && (
+          <SelectField
+            id="history-retention"
+            label={t('settings.privacy.retention')}
+            value={retentionValue(privacy.historyRetentionDays)}
+            options={RETENTION_OPTIONS.map((days) => ({
+              value: retentionValue(days),
+              label: t(`settings.privacy.retention.${days}`)
+            }))}
+            onChange={(value) => {
+              save({ privacy: { historyRetentionDays: RETENTION_BY_VALUE[value] } });
+            }}
+          />
+        )}
+        {prompt === 'askDeleteAfterDisable' && (
+          <div className="confirm" role="group" aria-labelledby="ask-delete">
+            <p id="ask-delete" className="confirm__text">
+              {t('settings.privacy.disabled.ask')}
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="button"
+                autoFocus
+                onClick={() => {
+                  setPrompt('none');
+                }}
+              >
+                {t('settings.privacy.disabled.keep')}
+              </button>
+              <button type="button" className="button button--danger" onClick={clear}>
+                {t('settings.privacy.disabled.delete')}
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="field field--row">
+          <div className="field__text">
+            <span className="field__label">{t('settings.privacy.clear')}</span>
+            {prompt === 'cleared' && (
+              <p className="field__hint" role="status">
+                {t('settings.privacy.cleared')}
+              </p>
+            )}
+          </div>
+          {prompt !== 'confirmClear' && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setPrompt('confirmClear');
+              }}
+            >
+              {t('settings.privacy.clear')}
+            </button>
+          )}
+        </div>
+        {prompt === 'confirmClear' && (
+          <div className="confirm" role="alertdialog" aria-labelledby="confirm-clear">
+            <p id="confirm-clear" className="confirm__text">
+              {t('settings.privacy.clear.confirm')}
+            </p>
+            <div className="actions">
+              {/* Ação destrutiva: o foco começa em Cancelar (SPEC §22.2). */}
+              <button
+                type="button"
+                className="button"
+                autoFocus
+                onClick={() => {
+                  setPrompt('none');
+                }}
+              >
+                {t('settings.privacy.clear.cancel')}
+              </button>
+              <button type="button" className="button button--danger" onClick={clear}>
+                {t('settings.privacy.clear.confirmButton')}
+              </button>
+            </div>
+          </div>
+        )}
+        {clearError !== null && (
+          <p className="banner banner--error" role="alert">
+            {clearError}
+          </p>
+        )}
+      </Card>
+      <Card>
+        <ul className="checklist">
+          <li>{t('settings.privacy.summary')}</li>
+          <li>{t('settings.privacy.local')}</li>
+          <li>{t('settings.privacy.noTelemetry')}</li>
+          <li>{t('settings.privacy.demoOffline')}</li>
+        </ul>
+      </Card>
+    </>
   );
 }
 

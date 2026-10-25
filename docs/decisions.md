@@ -103,3 +103,69 @@ As alças prateadas sumiam em fundos claros (papel de parede claro, barra de tar
 `CLIPSTER_E2E_SLEEP_AFTER_MS` substitui "Dormir depois de" apenas quando `CLIPSTER_E2E=1`, para testar o sono em segundos.
 
 ### 2026-10-24 · Versão 0.2.0
+Personagem, máquina de estados e pré-visualização de estados (Fase 2).
+
+---
+
+## Fase 3 — conversa
+
+### 2026-10-24 · `react-markdown` 10.1 + `remark-gfm` 4.0
+Respostas de IA usam tabelas, listas e código com frequência; o GFM (tabelas, riscado, autolinks) é do mesmo projeto (unified/remark), maduro e mantido. Sem `rehype-raw` e com `skipHtml`: HTML vira nada. Ambos ficam só no bundle do balão.
+
+### 2026-10-24 · Balão em janela própria, com altura informada pelo balão
+O balão mede a própria altura e manda `balloon:resize`; o main ajusta a janela e a posição. Uma janela de altura fixa deixaria um retângulo transparente bloqueando cliques acima do personagem. **Escala do chat:** tamanho da fonte da raiz (1rem = 14 px × escala) e medidas em rem. **Descartado:** `webContents.setZoomFactor`, porque o zoom do Chromium vale por origem, e as três janelas usam a mesma origem (`app://clipster`).
+
+### 2026-10-24 · Posição do balão em função pura; rabicho desenhado pelo balão
+`placeBalloon` (acima e à esquerda; inverte na horizontal e/ou na vertical; limita à área útil do monitor do personagem) é testada em unidade com coordenadas negativas e monitores pequenos. O main envia `balloon:placement` (lado e posição da ponta) e o balão desenha o rabicho. Sem sobrepor a janela do personagem, para não depender de cliques passarem por pixels transparentes.
+
+### 2026-10-24 · Primeira execução: balão de boas-vindas sem foco
+1,2 s depois de o personagem aparecer, o balão abre com `showInactive()` no passo 1 do onboarding (SPEC §6.2 "happy + saudação" e §9). Não toma o foco; só um clique do usuário o faz. Fora da primeira execução, o balão nunca abre sozinho. O onboarding continua de onde parou se o balão for fechado.
+
+### 2026-10-24 · Conversa no main, eventos para o balão
+`AssistantService` guarda a conversa (sobrevive a fechar ou recarregar o balão). Eventos: `start` (pergunta + resposta vazia), `delta` (agrupado a cada 40 ms), `done`, `cancelled`, `error` e `reset` (troca da conversa inteira). Eventos de uma requisição vão só para a janela que pediu. O balão se inscreve antes de pedir a conversa; eventos que chegam antes da resposta já estão nela e são descartados (o main responde e emite na mesma fila, em ordem).
+
+### 2026-10-24 · Canais além do Apêndice C original
+- `chat:retry`: "Tentar de novo" refaz a última pergunta sem duplicá-la na conversa.
+- `chat:typing` como `send` (sem resposta), não `invoke`.
+- `balloon:resize` (send), `balloon:placement` e `balloon:shown` (eventos), `windows:balloon:close` (invoke).
+- `clipboard:writeText`: o "Copiar" passa pelo main (`clipboard` do Electron 45 é assíncrono). **Descartado:** liberar a permissão web de área de transferência, que hoje fica negada para tudo.
+- `windows:balloon:toggle` não existe: abrir/fechar vem de ações tratadas no main (clique, menus, bandeja, atalho).
+
+### 2026-10-24 · Erros: o main manda o código, o balão escreve a frase
+`ChatErrorInfo { code, retryAfterSeconds?, supportCode }`. O texto vem do i18n (`error.<CÓDIGO>`), com variante `.witty` só nos códigos que a SPEC §23 permite suavizar. O código de suporte (`CLP-XXXX`) aparece no balão e no log, junto com o detalhe técnico, que nunca vai para a tela.
+
+### 2026-10-24 · Personalidades: prompts e falas no perfil; rótulos no i18n
+`src/shared/personalities/` guarda as instruções (base do Apêndice A + camada de cada personalidade) e as falas do personagem (`greeting`, `modeActivated`, `wakeUp`, `demoFallback`). Nome, descrição e frase de exemplo continuam no i18n, porque são rótulos de interface usados também nos menus. Os perfis são validados com Zod no main e nos testes; o módulo não importa Zod para poder entrar no bundle do balão. Os prompts seguem em português, como no Apêndice A, para o dono do produto poder lê-los e ajustá-los.
+
+### 2026-10-24 · Modo Demo
+Repertório por tema (renomear, captura de tela, copiar e colar, horas, quem é você, o que sabe fazer, saudação), com passos por sistema (Windows/macOS/Linux), dois idiomas e final no tom de cada personalidade. O idioma vem das palavras da pergunta; empate fica com o da interface. Palavras inteiras (`oi` não casa com `foi`). "Que horas são?" é respondida com o relógio do sistema; na Fase 5 passa pelo `getCurrentTime` e pelo fluxo de ferramentas. Ritmo: 0,7 s "pensando" e um pedaço a cada 28 ms.
+
+### 2026-10-24 · Simulações só em desenvolvimento e E2E
+`/simular erro <status>`, `timeout`, `offline`, `queda` e `markdown` (resposta com `javascript:`, `<script>`, `onerror` e imagem remota, para provar o Markdown seguro de ponta a ponta). Ativas quando o app não está empacotado ou com `CLIPSTER_E2E=1`.
+
+### 2026-10-24 · Histórico
+Um arquivo (`history.json`) com várias conversas; ao abrir, a mais recente volta para o balão. Retenção ao carregar e ao mudar a opção; limite de ~5 MB removendo as mais antigas. Desligar para de gravar na hora; o arquivo só some se o usuário aceitar a pergunta "apagar também o que já foi salvo?". "Limpar histórico" apaga primeiro a conversa (uma resposta em andamento é interrompida e entregue ao histórico) e depois o disco, numa fila única de escrita: nenhuma gravação atrasada recria o arquivo.
+
+### 2026-10-24 · Confirmações em linha, sem diálogo nativo
+"Limpar histórico" e "apagar o que já foi salvo" usam uma caixa de confirmação dentro da própria janela, com o foco inicial em Cancelar (SPEC §22.2). Diálogos nativos bloqueariam os testes E2E e destoariam do resto da interface.
+
+### 2026-10-24 · Dica "ainda estou aqui" só no Windows
+Na primeira vez que o usuário esconde o Clipster, aparece uma dica junto ao ícone da bandeja (`tray.displayBalloon`). Só no Windows, onde o ícone pode ficar em "ícones ocultos". No macOS o ícone fica sempre visível na barra de menus; no Linux não há essa API. A marca `hideTipShown` fica nas configurações, gerenciada pelo main.
+
+### 2026-10-24 · Atalho global fixo
+"Atalho para chamar o Clipster" (desligado por padrão) registra `CommandOrControl+Shift+Space` antes de salvar; se outro programa já o usa, a configuração não muda e aparece "Esse atalho já está em uso" (código `SHORTCUT_IN_USE`). Escolher outra combinação fica para depois.
+
+### 2026-10-24 · Corretor ortográfico segue desligado no balão
+Ligá-lo no Windows e no Linux faria o Chromium baixar dicionários Hunspell (SPEC §26.14). Fica para quando houver dicionários empacotados ou o corretor nativo do sistema.
+
+### 2026-10-24 · Configurações › IA só com "Nenhuma" e "Modo demonstração"
+Os providers reais chegam na Fase 4. Se o arquivo tiver outro valor, o balão trata como "nenhuma IA configurada".
+
+### 2026-10-24 · Visual do balão
+O cabeçalho imita o visor do personagem (vidro escuro, brilho ciano, olhos de pixel), nos dois temas; o resto é "papel" discreto. As respostas do Clipster ficam sem bolha própria (o balão já é a fala dele); as mensagens do usuário aparecem como etiquetas à direita. Com os controles visíveis, o nome "Clipster" no cabeçalho fica só para leitores de tela, porque não cabe junto com o seletor de personalidade em 340 DIP.
+
+### 2026-10-24 · E2E
+`CLIPSTER_E2E_DEMO_DELAY_MS` controla o ritmo do Demo nos testes (padrão 0). Os testes podem gravar um `settings.json` inicial na pasta temporária (ex.: usuário que já passou pela primeira execução).
+
+### 2026-10-24 · Versão 0.3.0
+Balão de conversa, modo Demo, personalidades em ação, Markdown seguro, histórico opcional e primeira execução (Fase 3).

@@ -135,6 +135,15 @@ export class SettingsStore {
     return this.commit({ ...this.current, firstRunCompleted: value });
   }
 
+  setHideTipShown(value: boolean): Settings {
+    return this.commit({ ...this.current, hideTipShown: value });
+  }
+
+  /** Fim da primeira execução (SPEC §9): grava a escolha do onboarding de uma vez. */
+  completeOnboarding(patch: SettingsPatch): Settings {
+    return this.commit({ ...applySettingsPatch(this.current, patch), firstRunCompleted: true });
+  }
+
   onChange(listener: SettingsListener): () => void {
     this.listeners.add(listener);
     return () => {

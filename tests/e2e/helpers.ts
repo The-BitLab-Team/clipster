@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import type { ConversationSnapshot } from '../../src/shared/ai/conversation';
 import type { CharacterEvent } from '../../src/shared/character/stateMachine';
 import type { CharacterView } from '../../src/shared/character/states';
 import type { Settings } from '../../src/shared/schemas/settings';
@@ -46,12 +47,26 @@ export async function waitForPage(app: ElectronApplication, fileName: string): P
 export interface LaunchOptions {
   args?: readonly string[];
   env?: Readonly<Record<string, string>>;
+  /**
+   * Configurações gravadas antes de abrir (campos ausentes ficam no padrão). Sem isto, é a
+   * primeira execução de verdade: o balão de boas-vindas aparece sozinho.
+   */
+  settings?: Readonly<Record<string, unknown>>;
 }
+
+/** Configurações de quem já passou pela primeira execução, em português. */
+export const RETURNING_USER = {
+  firstRunCompleted: true,
+  general: { language: 'pt-BR' }
+} as const;
 
 export async function launchClipster(
   userDataDir: string,
   options: LaunchOptions = {}
 ): Promise<LaunchedApp> {
+  if (options.settings !== undefined) {
+    writeFileSync(join(userDataDir, 'settings.json'), JSON.stringify(options.settings));
+  }
   const app = await electron.launch({
     args: [PROJECT_ROOT, ...sandboxArgs(), ...(options.args ?? [])],
     env: {
@@ -139,4 +154,79 @@ export function waitForExit(app: ElectronApplication, timeoutMs = 10_000): Promi
       resolveExit(code);
     });
   });
+}
+
+// ── Balão e conversa (Fase 3) ──────────────────────────────────────────────
+
+export function balloonPage(app: ElectronApplication): Promise<Page> {
+  return waitForPage(app, 'balloon.html');
+}
+
+export function isBalloonVisible(app: ElectronApplication): Promise<boolean> {
+  return app.evaluate(() => globalThis.__clipsterTest?.isBalloonVisible() ?? false);
+}
+
+export function balloonBounds(app: ElectronApplication): Promise<Bounds | null> {
+  return app.evaluate(() => globalThis.__clipsterTest?.balloonBounds() ?? null);
+}
+
+export function conversation(app: ElectronApplication): Promise<ConversationSnapshot | null> {
+  return app.evaluate(() => globalThis.__clipsterTest?.conversation() ?? null);
+}
+
+export function readClipboard(app: ElectronApplication): Promise<string> {
+  return app.evaluate(() => globalThis.__clipsterTest?.readClipboard() ?? Promise.resolve(''));
+}
+
+export function flushHistory(app: ElectronApplication): Promise<void> {
+  return app.evaluate(() => globalThis.__clipsterTest?.flushHistory() ?? Promise.resolve());
+}
+
+/** Clique real no visor do personagem (abre/fecha o balão). */
+export async function clickCharacter(characterPage: Page): Promise<void> {
+  await characterPage.mouse.click(80, 110);
+}
+
+/** Abre o balão pelo personagem e devolve a página dele, já visível. */
+export async function openBalloon(app: ElectronApplication, characterPage: Page): Promise<Page> {
+  const page = await balloonPage(app);
+  await page.getByTestId('balloon').waitFor();
+  if (!(await isBalloonVisible(app))) await clickCharacter(characterPage);
+  await eventually(
+    () => isBalloonVisible(app),
+    (visible) => visible
+  );
+  return page;
+}
+
+/** Envia uma pergunta pelo campo de texto e espera a resposta terminar. */
+export async function ask(app: ElectronApplication, balloon: Page, text: string): Promise<void> {
+  const before = (await conversation(app))?.messages.length ?? 0;
+  await balloon.locator('#message').fill(text);
+  await balloon.locator('#message').press('Enter');
+  await eventually(
+    () => conversation(app),
+    (snapshot) =>
+      snapshot !== null &&
+      snapshot.messages.length >= before + 2 &&
+      snapshot.activeRequestId === null,
+    15_000
+  );
+}
+
+/** Registra, na janela do personagem, cada pose que aparece (para conferir sequências). */
+export async function recordStates(characterPage: Page): Promise<() => Promise<string[]>> {
+  // `__states` é um global criado só por este teste, na página do personagem.
+  await characterPage.evaluate(() => {
+    const target = document.getElementById('character');
+    const seen: string[] = [];
+    (window as unknown as { __states: string[] }).__states = seen;
+    if (target === null) return;
+    new MutationObserver(() => {
+      const state = target.dataset.state ?? '';
+      if (seen.at(-1) !== state) seen.push(state);
+    }).observe(target, { attributes: true, attributeFilter: ['data-state'] });
+  });
+  return () =>
+    characterPage.evaluate(() => [...(window as unknown as { __states: string[] }).__states]);
 }

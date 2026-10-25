@@ -72,6 +72,36 @@ export function createClipsterApi(ipc: IpcRendererLike): ClipsterApi {
         ipc.send(IpcChannel.characterContextMenu);
       }
     },
+    chat: {
+      send: (text) => invoke(IpcChannel.chatSend, { text }),
+      cancel: (requestId) => invoke(IpcChannel.chatCancel, { requestId }),
+      retry: () => invoke(IpcChannel.chatRetry),
+      getConversation: () => invoke(IpcChannel.chatConversationGet),
+      newConversation: () => invoke(IpcChannel.chatConversationNew),
+      clearHistory: () => invoke(IpcChannel.chatHistoryClear, { confirmed: true }),
+      typing: () => {
+        ipc.send(IpcChannel.chatTyping, { typing: true });
+      },
+      onEvent: (listener) => subscribe(IpcChannel.chatEvent, listener)
+    },
+    onboarding: {
+      complete: (result) =>
+        invoke(IpcChannel.onboardingComplete, {
+          personality: result.personality,
+          provider: result.provider
+        })
+    },
+    balloon: {
+      close: () => invoke(IpcChannel.windowsBalloonClose),
+      resize: (height) => {
+        ipc.send(IpcChannel.balloonResize, { height: Math.round(height) });
+      },
+      onPlacement: (listener) => subscribe(IpcChannel.balloonPlacement, listener),
+      onShown: (listener) => subscribe(IpcChannel.balloonShown, listener)
+    },
+    clipboard: {
+      writeText: (text) => invoke(IpcChannel.clipboardWriteText, { text })
+    },
     windows: {
       openSettings: (section) =>
         section === undefined

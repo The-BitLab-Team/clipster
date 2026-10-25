@@ -239,7 +239,7 @@ interface PersonalityProfile {
 }
 ```
 
-- Perfis ficam em `src/shared/personalities/`, validados com Zod.
+- Perfis ficam em `src/shared/personalities/`, validados com Zod. Nome, descrição e frase de exemplo são rótulos de interface e ficam no i18n (`personality.<id>.*`), porque também aparecem nos menus; o perfil guarda as instruções e as falas.
 - `PersonalityManager`: resolve o perfil ativo, aplica fallback para `helpful` se o id salvo for desconhecido, persiste a escolha e notifica as janelas.
 
 ### 7.2 Prestativo (`helpful`)
@@ -313,7 +313,9 @@ No máximo 3 passos curtos, dentro do próprio balão, que podem ser pulados (`E
 2. **Personalidade:** dois botões, cada um com uma fala de exemplo do modo.
 3. **IA:** [Experimentar no modo demonstração] · [Configurar IA agora] · [Depois]. Junto, uma linha: "Algumas funções futuras vão pedir sua permissão antes de acessar algo do computador. Você fica no controle."
 
-Ao terminar: `firstRunCompleted = true`. Na primeira vez que o usuário esconder o Clipster, mostrar uma única dica: "Ainda estou aqui: me chame pela bandeja, perto do relógio." No Windows 11 o ícone pode ficar escondido no menu de ícones ocultos.
+Na primeira execução, ~1 s depois de o personagem aparecer, o balão abre sozinho no passo 1, com `showInactive()` (sem tirar o foco). Fora da primeira execução, o balão nunca abre sozinho. Fechar o balão no meio do onboarding não o conclui: ele continua na próxima abertura.
+
+Ao terminar: `firstRunCompleted = true`. Na primeira vez que o usuário esconder o Clipster, mostrar uma única dica: "Ainda estou aqui: me chame pela bandeja, perto do relógio." No Windows 11 o ícone pode ficar escondido no menu de ícones ocultos. A dica aparece junto ao ícone da bandeja (`tray.displayBalloon`), só no Windows; no macOS o ícone fica sempre visível e no Linux não há essa API.
 
 ---
 
@@ -365,7 +367,7 @@ Janela própria com **moldura nativa** (mais simples e acessível), barra latera
 | | Iniciar com o sistema | **Desligado** | Nunca ativar silenciosamente. Indisponível em modo dev e no Linux (MVP) (§27.2). |
 | | Iniciar escondido (só na bandeja) | Desligado | Substitui "Start minimized" da v1. |
 | | Sempre visível | Ligado | |
-| | Atalho global para chamar o Clipster | Desligado | Sugestão: `Ctrl+Shift+Espaço`. Mostrar erro se o atalho já estiver em uso. |
+| | Atalho global para chamar o Clipster | Desligado | `Ctrl+Shift+Espaço` (`⌘+Shift+Espaço` no macOS), fixo no MVP. Mostrar erro se o atalho já estiver em uso. |
 | | Dormir após inatividade | 10 min | 5 / 10 / 30 min / nunca |
 | **IA** | Provider | Nenhum | `none` / `demo` / `openai-compatible` / `anthropic` |
 | | Endereço do servidor (compatível com OpenAI) | `http://localhost:11434/v1` | Padrão do Ollama. Aceita somente `http(s)`. |
@@ -620,11 +622,11 @@ Usar sempre `workArea` (exclui a barra de tarefas). Considerar coordenadas negat
 ```ts
 interface ConversationMessage {
   id: string;
-  role: 'user' | 'assistant' | 'tool';
+  role: 'user' | 'assistant';   // 'tool' entra na Fase 5
   content: string;
   createdAt: string;            // ISO 8601
-  status?: 'complete' | 'interrupted' | 'error';
-  toolCall?: ToolCall;
+  status: 'streaming' | 'complete' | 'interrupted' | 'error';
+  error?: { code: ClipsterErrorCode; retryAfterSeconds?: number; supportCode?: string };
 }
 
 interface ChatRequest {
@@ -684,8 +686,8 @@ Resolve uma contradição da v1: o MVP precisa responder no app instalado, mas a
 - Respostas pré-programadas por palavra-chave, por personalidade, por idioma e por sistema operacional (Apêndice B). Fora do repertório, responde com `microcopy.demoFallback`, convidando a configurar uma IA.
 - Streaming simulado com atraso configurável (0 ms nos testes, via timers falsos ou variável de ambiente).
 - Suporta cancelamento.
-- Simula uma chamada de ferramenta ("que horas são?" → `getCurrentTime`), exercitando o pipeline de ferramentas.
-- **Somente em dev/teste:** comandos para simular erros (ex.: `/simular erro 429`, `/simular timeout`) para testar a experiência de erro sem gastar tokens.
+- "Que horas são?": até a Fase 5, responde com o relógio do sistema; a partir dela, simula uma chamada de ferramenta (`getCurrentTime`), exercitando o pipeline de ferramentas.
+- **Somente em dev/teste** (app não empacotado ou `CLIPSTER_E2E=1`): `/simular erro <status>` (400, 401, 402, 403, 404, 429, 500, 503, 529), `/simular timeout`, `/simular offline`, `/simular queda` (cai no meio da resposta) e `/simular markdown` (resposta com link `javascript:`, HTML e imagem remota, para testar o Markdown seguro). Também em inglês (`/simulate error 429`…).
 
 ### 20.4 Providers reais (Fase 4)
 
@@ -847,7 +849,7 @@ Obrigatório, alinhado à checklist oficial de segurança do Electron. Documenta
 11. **Segredos** (§21) e **logs** (§24).
 12. **Dependências:** antes de adicionar, verificar necessidade, manutenção e popularidade; evitar pacotes para coisas triviais. `package-lock.json` versionado; `npm ci` no CI; `npm audit --omit=dev --audit-level=high` no CI; Dependabot semanal. Corrigir vulnerabilidades que puderem ser corrigidas sem quebrar compatibilidade.
 13. **Assinatura de código:** fora do MVP (D5); documentar os alertas esperados do SmartScreen/Gatekeeper.
-14. **Corretor ortográfico:** o Chromium baixa dicionários de um servidor do Google ao iniciar (verificado com `--log-net-log`). Desligar no evento `session-created` (desligar depois do `ready` chega tarde demais), esvaziar os idiomas e apontar o download para um endereço local inválido. Reativar, quando houver campos de texto, apenas com o corretor nativo do sistema ou dicionários empacotados. Um teste E2E garante zero requisições de rede ao iniciar.
+14. **Corretor ortográfico:** o Chromium baixa dicionários de um servidor do Google ao iniciar (verificado com `--log-net-log`). Desligar no evento `session-created` (desligar depois do `ready` chega tarde demais), esvaziar os idiomas e apontar o download para um endereço local inválido. Reativar apenas com o corretor nativo do sistema ou dicionários empacotados; até lá, o campo de texto do balão fica sem corretor. Um teste E2E garante zero requisições de rede ao iniciar.
 
 ---
 
@@ -993,7 +995,7 @@ Cada fase só termina quando seus critérios de saída passam.
 
 **MVP técnico** = Fases 0–3 + entrega da Fase 6 (empacotamento, docs, QA). **Primeiro release público** = MVP técnico + Fase 4 + decisões D1–D7.
 
-**Status em 24/10/2026:** Fases 0, 1 e 2 concluídas (versão 0.2.0). Próxima: Fase 3.
+**Status em 24/10/2026:** Fases 0, 1, 2 e 3 concluídas (versão 0.3.0). Próxima: Fase 4.
 
 ---
 
@@ -1146,19 +1148,24 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `secrets:status` | invoke | `{ provider }` → `{ hasKey, hint, secureBackend: boolean }` |
 | `chat:send` | invoke | `{ text }` → `{ requestId }` |
 | `chat:cancel` | invoke | `{ requestId }` → `{ cancelled: boolean }` |
-| `chat:event` | event | `{ requestId, type: 'start' \| 'delta' \| 'tool' \| 'done' \| 'error' \| 'cancelled', … }` |
-| `chat:conversation:get` | invoke | — → `ConversationMessage[]` |
-| `chat:conversation:new` | invoke | — → `{ conversationId }` |
-| `chat:history:clear` | invoke | `{ confirmed: true }` → `{ cleared: boolean }` |
-| `chat:typing` | invoke | `{ typing: boolean }` → — (alimenta `listening`) |
-| `ai:models:list` | invoke | `{ provider }` → `ModelInfo[]` |
-| `ai:connection:test` | invoke | `{ provider }` → `ConnectionStatus` |
+| `chat:retry` | invoke | — → `{ requestId }` (refaz a última pergunta, sem duplicá-la) |
+| `chat:event` | event | `{ requestId, type: 'start' \| 'delta' \| 'done' \| 'error' \| 'cancelled', … }` ou `{ type: 'reset', conversation }` (`tool` na Fase 5) |
+| `chat:conversation:get` | invoke | — → `{ id, messages: ConversationMessage[], activeRequestId }` |
+| `chat:conversation:new` | invoke | — → mesma forma de `chat:conversation:get` |
+| `chat:history:clear` | invoke | `{ confirmed: true }` → `{ cleared: boolean }` (só a janela de Configurações) |
+| `chat:typing` | send | `{ typing: boolean }` (alimenta `listening`) |
+| `ai:models:list` | invoke | `{ provider }` → `ModelInfo[]` (Fase 4) |
+| `ai:connection:test` | invoke | `{ provider }` → `ConnectionStatus` (Fase 4) |
 | `character:view` | event | `{ state, badge }` (pose decidida pela máquina de estados) |
 | `character:getView` | invoke | — → `{ state, badge }` (consulta ao abrir a janela) |
-| `character:click` | invoke | — → — |
-| `character:dragStart` / `dragMove` / `dragEnd` | invoke | `{ dx, dy }` no `dragMove` |
-| `character:setClickThrough` | invoke | `{ ignore: boolean }` |
-| `windows:balloon:toggle` / `windows:balloon:close` | invoke | — |
+| `character:click` | send | — |
+| `character:dragStart` / `dragMove` / `dragEnd` | send | `{ dx, dy }` no `dragMove` |
+| `character:setClickThrough` | send | `{ ignore: boolean }` |
+| `windows:balloon:close` | invoke | — |
+| `balloon:resize` | send | `{ height }` (altura do conteúdo, em DIP) |
+| `balloon:placement` | event | `{ vertical: 'above' \| 'below', tailX }` (para desenhar o rabicho) |
+| `balloon:shown` | event | `{ focus: boolean, wokeUp: boolean }` |
+| `clipboard:writeText` | invoke | `{ text }` (botões "Copiar"; só o balão) |
 | `windows:settings:open` | invoke | `{ section? }` |
 | `windows:settings:navigate` | event | `SettingsSection` (Configurações já aberta muda de seção) |
 | `windows:hideClipster` | invoke | — |
@@ -1166,10 +1173,10 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `permissions:request` | event | `{ requestId, tool, action: LocalizedString, risk, scopes }` |
 | `permissions:respond` | invoke | `{ requestId, decision: 'deny' \| 'once' \| 'session' \| 'always' }` |
 | `shell:openExternal` | invoke | `{ url }` → `{ opened: boolean }` (validado, §26) |
-| `onboarding:complete` | invoke | `{ personality, provider }` |
+| `onboarding:complete` | invoke | `{ personality, provider: 'none' \| 'demo' }` |
 | `app:info` | invoke | — → `{ version, electron, chrome, platform, license, repositoryUrl }` |
 | `app:quit` | invoke | — |
-| `log:write` | invoke | `{ level, message, context? }` (tamanho limitado) |
+| `log:write` | send | `{ level, message, context? }` (tamanho limitado) |
 | `diagnostics:openLogs` / `diagnostics:copy` | invoke | — |
 
 ---

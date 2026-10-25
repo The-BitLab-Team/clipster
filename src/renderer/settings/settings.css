@@ -376,6 +376,39 @@ body {
   border-color: var(--clp-color-accent);
 }
 
+.button--danger {
+  border-color: var(--clp-color-danger);
+  background: var(--clp-color-danger);
+  color: #ffffff;
+}
+
+.button--danger:hover {
+  border-color: var(--clp-color-danger);
+  filter: brightness(1.08);
+}
+
+:root[data-theme='dark'] .button--danger,
+:root:not([data-theme='light']) .button--danger {
+  color: #ffffff;
+}
+
+/* Confirmação em linha (ações destrutivas): sem diálogo nativo, foco em Cancelar. */
+.confirm {
+  margin: 0 0 var(--clp-space-3);
+  padding: var(--clp-space-3);
+  border: 1px solid var(--clp-color-danger);
+  border-radius: var(--clp-radius-md);
+  background: var(--clp-color-danger-soft);
+}
+
+.confirm__text {
+  margin: 0;
+}
+
+.confirm .actions {
+  padding-bottom: 0;
+}
+
 .link-button {
   padding: 0;
   border: 0;
@@ -397,4 +430,8 @@ body {
   .nav__item[aria-current='page']::before {
     background: Highlight;
   }
+}
+
+.card + .card {
+  margin-top: var(--clp-space-3);
 }

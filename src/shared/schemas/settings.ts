@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SETTINGS_SECTIONS } from '../constants/sections';
 import { CHARACTER_SCALE } from '../constants/ui';
+import { CHAT_SCALE } from '../ui/balloon';
 
 /**
  * Esquema das configurações (SPEC §12 e §13).
@@ -67,7 +68,7 @@ const generalShape = {
 
 const appearanceShape = {
   characterScale: z.number().min(CHARACTER_SCALE.min).max(CHARACTER_SCALE.max),
-  chatScale: z.number().min(0.85).max(1.3),
+  chatScale: z.number().min(CHAT_SCALE.min).max(CHAT_SCALE.max),
   animations: AnimationPreferenceSchema,
   theme: ThemePreferenceSchema,
   sounds: z.boolean()
@@ -97,6 +98,8 @@ export const WindowStateSchema = z.object(windowShape);
 export const SettingsSchema = z.object({
   schemaVersion: z.literal(SETTINGS_SCHEMA_VERSION),
   firstRunCompleted: z.boolean(),
+  /** A dica "ainda estou na bandeja" já foi mostrada (SPEC §9). */
+  hideTipShown: z.boolean(),
   general: GeneralSettingsSchema,
   personality: PersonalityIdSchema,
   appearance: AppearanceSettingsSchema,
@@ -106,8 +109,8 @@ export const SettingsSchema = z.object({
 });
 
 /**
- * Patch enviado pelos renderers. `schemaVersion`, `firstRunCompleted` e `window`
- * não podem ser alterados por esse caminho: são gerenciados pelo main process.
+ * Patch enviado pelos renderers. `schemaVersion`, `firstRunCompleted`, `hideTipShown` e
+ * `window` não podem ser alterados por esse caminho: são gerenciados pelo main process.
  */
 export const SettingsPatchSchema = z.strictObject({
   general: z.strictObject(generalShape).partial().optional(),
@@ -120,6 +123,7 @@ export const SettingsPatchSchema = z.strictObject({
 export type LanguagePreference = z.infer<typeof LanguagePreferenceSchema>;
 export type PersonalityId = z.infer<typeof PersonalityIdSchema>;
 export type SleepAfterMinutes = z.infer<typeof SleepAfterMinutesSchema>;
+export type HistoryRetentionDays = z.infer<typeof HistoryRetentionDaysSchema>;
 export type AnimationPreference = z.infer<typeof AnimationPreferenceSchema>;
 export type ThemePreference = z.infer<typeof ThemePreferenceSchema>;
 export type SettingsSection = z.infer<typeof SettingsSectionSchema>;
@@ -130,6 +134,7 @@ export type SettingsPatch = z.infer<typeof SettingsPatchSchema>;
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: SETTINGS_SCHEMA_VERSION,
   firstRunCompleted: false,
+  hideTipShown: false,
   general: {
     language: 'system',
     launchAtLogin: false,
