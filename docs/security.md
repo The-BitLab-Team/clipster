@@ -1,6 +1,6 @@
 # Segurança
 
-Situação de cada item da SPEC §26 na versão 0.5.0. Base: a checklist oficial de segurança do Electron.
+Situação de cada item da SPEC §26 na versão 0.6.0. Base: a checklist oficial de segurança do Electron.
 
 | # | Item | Situação | Onde |
 |---|------|----------|------|
@@ -38,3 +38,5 @@ Situação de cada item da SPEC §26 na versão 0.5.0. Base: a checklist oficial
 - **Ferramentas (SPEC §22).** Executam só no main. O nome pedido pelo modelo é procurado num `Map` (nada de propriedades herdadas), os argumentos passam pelo esquema Zod da ferramenta antes de qualquer outra coisa e o texto do pedido de permissão é gerado pela ferramenta a partir dos argumentos validados (sem caracteres de controle nem de direção de texto). O resultado volta ao modelo como dado (JSON) e nunca concede permissões: cada chamada passa de novo pela checagem. Máximo de 5 por mensagem.
 - **Permissões.** Só nascem de uma resposta a um pedido pendente (`permissions:respond`, só o balão); o main recusa escolhas que o risco não permite ("sempre" numa ação destrutiva, por exemplo). `settings:update` não altera `permissions`. Concessões lidas do arquivo valem só até onde o risco permite. Ver e revogar: só as Configurações. Testado em `tests/unit/permissions.test.ts`, `tests/integration/ipc.test.ts` e `tests/e2e/tools.spec.ts`.
 - **Ferramentas de teste** só existem com `CLIPSTER_DEV_TOOLS=1` fora do app instalado (verificado no AppImage: com a variável definida, elas não aparecem).
+- **Copiar diagnóstico** (só as Configurações) monta o texto no main, com uma lista fechada de campos: versões, sistema, telas, idioma, IA escolhida (sem o endereço do servidor), se o cofre é seguro e preferências gerais. Nunca chaves, conversas, caminhos ou nome de usuário (teste em `tests/unit/diagnostics.test.ts`).
+- **Desinstalação** (Windows) remove a entrada de "Iniciar com o sistema"; não roda código fora disso (`build/installer.nsh`).

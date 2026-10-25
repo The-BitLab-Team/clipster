@@ -50,7 +50,7 @@ test('o app inicia e o personagem aparece no estado idle', async () => {
     expect(bounds).toMatchObject({ width: 160, height: 160 });
 
     const info = await characterPage.evaluate(() => window.clipster.app.info());
-    expect(info.ok && info.data.version).toBe('0.5.0');
+    expect(info.ok && info.data.version).toBe('0.6.0');
   } finally {
     await app.close();
   }
@@ -233,6 +233,25 @@ test('privacidade: o app não faz nenhuma requisição de rede ao iniciar e abri
   );
   // O conteúdo vem do protocolo app:// (não passa pela rede). Qualquer URL http(s) seria um vazamento.
   expect(urls.filter((url) => /^(https?|wss?):/.test(url))).toEqual([]);
+});
+
+test('Sobre › "Copiar diagnóstico" copia versões e sistema, sem nada pessoal', async () => {
+  const { app } = await launchClipster(userDataDir, {
+    settings: { firstRunCompleted: true, general: { language: 'pt-BR' }, ai: { provider: 'demo' } }
+  });
+  try {
+    await runCommand(app, 'openSettings');
+    const settingsPage = await waitForPage(app, 'settings.html');
+    await settingsPage.getByRole('button', { name: 'Sobre', exact: true }).click();
+    await settingsPage.getByRole('button', { name: 'Copiar diagnóstico' }).click();
+    await expect(settingsPage.getByRole('status')).toContainText('Diagnóstico copiado');
+    const copied = await app.evaluate(({ clipboard }) => clipboard.readText());
+    expect(copied).toMatch(/^Clipster \d+\.\d+\.\d+ \(development\)/);
+    expect(copied).toContain('AI: demo · model demo · ready');
+    expect(copied).not.toContain(userDataDir);
+  } finally {
+    await app.close();
+  }
 });
 
 test('"Sair" encerra o processo corretamente', async () => {

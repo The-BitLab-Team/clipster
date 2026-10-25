@@ -251,3 +251,28 @@ Eventos `PERMISSION_REQUESTED` e `PERMISSION_RESOLVED` na máquina de estados: p
 
 ### 2026-10-25 · Versão 0.5.0
 Ferramentas e permissões (Fase 5).
+
+---
+
+## Fase 6 — polimento e entrega
+
+### 2026-10-25 · Acessibilidade verificada com o axe-core
+`axe-core` 4.14 (devDependency) roda dentro de cada página nos testes E2E: personagem, balão em seis estados e as seis seções das Configurações, nos temas claro e escuro, com as regras WCAG 2.0/2.1/2.2 A e AA e as boas práticas. **Descartado:** `@axe-core/playwright`, que abre uma aba nova para terminar a análise, o que o Electron não permite. Correções que saíram da auditoria: o balão e a janela do personagem ganharam o landmark `main` (e a do personagem, um título oculto); o campo de texto ganhou um anel de foco de 2 px na caixa (antes, só a borda mudava de cor); no alto contraste, a personalidade escolhida usa `Highlight`/`HighlightText` sem ajuste forçado (o texto sumia). Os textos sobre o visor (degradê, que o axe não mede) foram conferidos à mão: contraste de 8,3:1 a 16:1.
+
+### 2026-10-25 · `npm run measure`
+Mede com `app.getAppMetrics()` o tempo até o personagem aparecer e a CPU e a memória parado e dormindo, numa pasta de dados temporária. A memória comparada com a meta é a privada no Windows (a coluna do Gerenciador de Tarefas) e o PSS no Linux; o "working set" somado conta várias vezes as bibliotecas compartilhadas e aparece só como referência. Mede o build de `out/`: o app instalado recusa automação (Fuses), como deve.
+
+### 2026-10-25 · Vários monitores de verdade no Linux: Xorg com o driver "dummy"
+O Xvfb não aceita monitores virtuais (`xrandr --setmonitor` é ignorado) nem o Xinerama aparece para o Electron. O Xorg com `xserver-xorg-video-dummy` tem 16 saídas virtuais que o `xrandr` liga e desliga, e o Electron vê dois monitores e recebe `display-removed` de verdade. Detalhe: esse driver só atualiza a lista de monitores quando alguém a consulta, então o script chama `xrandr --listmonitors` depois de cada mudança. Escala por `--force-device-scale-factor=1.5` (no X11, uma escala para todas as telas; escalas diferentes por monitor ficam no roteiro manual). Fica fora do CI: exige permissão para iniciar o Xorg.
+
+### 2026-10-25 · Copiar diagnóstico e Verificar atualizações (SPEC §12, §24, §27.4)
+"Copiar diagnóstico" monta no main um resumo técnico (versões, sistema, telas, idioma, IA escolhida e se está pronta, cofre seguro, preferências gerais, quantas permissões) e põe na área de transferência. Fica de fora: chaves (nem a dica), conversas, o endereço do servidor de IA (só "local" ou "remoto"), caminhos e nome de usuário. "Verificar atualizações" abre `<repositório>/releases` e só aparece com `REPOSITORY_URL` definido (decisão D6).
+
+### 2026-10-25 · Desinstalação remove "Iniciar com o sistema"
+`build/installer.nsh` apaga a entrada de inicialização do Windows (nome = AppUserModelID) ao desinstalar, mas não numa atualização. As configurações em `%APPDATA%\Clipster` continuam após desinstalar (`deleteAppDataOnUninstall: false`), para uma reinstalação não perder nada.
+
+### 2026-10-25 · Memória acima da meta no ambiente de teste
+Em Linux sem placa de vídeo (renderização por software), cerca de 290 MB de PSS com o personagem e o balão pré-criado, acima dos 250 MB da SPEC §25. Seguindo "medir antes de otimizar", nada foi cortado às cegas: o balão pré-criado é exigência da SPEC (abre na hora) e o processo de GPU por software pesa mais que no Windows. A medição no Windows (`npm run measure`) decide se há algo a fazer.
+
+### 2026-10-25 · Versão 0.6.0
+Acessibilidade verificada, medição de desempenho, vários monitores e escala testados, instalador revisado, diagnóstico e documentação completa (Fase 6). O primeiro release público ainda depende do roteiro de QA no Windows e das decisões D1–D7.

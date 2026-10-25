@@ -85,6 +85,7 @@ export interface IpcInvokeResponses {
   [IpcChannel.appQuit]: null;
   [IpcChannel.shellOpenExternal]: { opened: boolean };
   [IpcChannel.diagnosticsOpenLogs]: null;
+  [IpcChannel.diagnosticsCopy]: { copied: boolean };
 }
 
 /** Payload de cada evento enviado do main para o renderer. */
@@ -190,6 +191,8 @@ export interface ClipsterApi {
   };
   diagnostics: {
     openLogs(): Promise<IpcResult<null>>;
+    /** Copia para a área de transferência um resumo técnico, sem chaves nem conversas. */
+    copy(): Promise<IpcResult<{ copied: boolean }>>;
   };
   log: {
     write(

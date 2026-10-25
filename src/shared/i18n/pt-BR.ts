@@ -175,6 +175,10 @@ export const ptBR = {
   'settings.about.license': 'Licença',
   'settings.about.licenseValue': 'A definir',
   'settings.about.repository': 'Repositório',
+  'settings.about.copyDiagnostics': 'Copiar diagnóstico',
+  'settings.about.copied':
+    'Diagnóstico copiado: versões, sistema e configurações gerais, sem chaves nem conversas.',
+  'settings.about.checkUpdates': 'Verificar atualizações',
   'settings.about.openLogs': 'Abrir pasta de logs',
   'settings.about.disclaimer': 'Não afiliado à Microsoft.',
 

@@ -391,7 +391,7 @@ Janela própria com **moldura nativa** (mais simples e acessível), barra latera
 | | Licença | "A definir" (D1) | |
 | | Repositório | — | Link externo validado (D6). |
 | | Abrir pasta de logs / Copiar diagnóstico | — | §24 |
-| | Verificar atualizações | — | Abre a página de releases no navegador (§27.4). |
+| | Verificar atualizações | — | Abre a página de releases no navegador (§27.4). Só aparece com o repositório definido (D6). |
 | | Aviso | — | "Não afiliado à Microsoft." |
 
 "Minimize to tray" da v1 foi removido: o personagem não tem moldura nem botão de minimizar, então a opção não tem significado. O equivalente é "Esconder".
@@ -429,6 +429,7 @@ Regras:
 - `prefers-reduced-motion` respeitado, com sobreposição pela configuração "Animações".
 - Modo de alto contraste do Windows (`forced-colors`): balão e Configurações continuam legíveis.
 - Escalas de personagem e chat respeitam o DPI do monitor.
+- *Verificado (v0.6.0):* axe-core (WCAG 2.0/2.1/2.2 A e AA + boas práticas) sem violações no personagem, no balão (onboarding, conversa, erro, ferramenta, pedido de permissão, sem IA) e nas seis seções das Configurações, nos dois temas; navegação por teclado com foco visível (E2E `accessibility.spec.ts`). Leitor de tela e alto contraste de verdade: roteiro manual.
 
 ---
 
@@ -839,6 +840,7 @@ O app fica aberto por horas. Metas iniciais (medir e registrar em `docs/compatib
 - CPU com o personagem em `idle`/`sleeping`: ~0% (média < 0,5% em 1 minuto numa máquina comum).
 - Memória total só com o personagem: alvo ≤ 250 MB (Electron tem custo base; medir antes de otimizar).
 - Personagem visível em < 2 s após iniciar.
+- *Medido (v0.6.0, `npm run measure`, Linux sem GPU):* personagem em 0,7 s; CPU 0,3% à disposição e 0,1% dormindo; memória ~290 MB de PSS (acima da meta, com renderização por software). Medição no Windows pendente.
 
 Regras:
 
@@ -1015,7 +1017,7 @@ Cada fase só termina quando seus critérios de saída passam.
 
 **MVP técnico** = Fases 0–3 + entrega da Fase 6 (empacotamento, docs, QA). **Primeiro release público** = MVP técnico + Fase 4 + decisões D1–D7.
 
-**Status em 25/10/2026:** Fases 0 a 5 concluídas (versão 0.5.0). Da Fase 4, "erros simulados mostram mensagens corretas" foi verificado com servidores simulados que seguem os protocolos da OpenAI e da Anthropic; a conversa com um provider local e um na nuvem de verdade depende da verificação manual do dono do produto (`docs/qa-checklist.md`). Da Fase 5, o fluxo de permissão foi testado de ponta a ponta (unidade, integração e E2E, com o Demo, as ferramentas de teste e um servidor compatível com OpenAI simulado). Próxima: Fase 6.
+**Status em 25/10/2026:** Fases 0 a 6 concluídas no código (versão 0.6.0). Itens 1–9 do critério de pronto (§36) verificados pelo agente; itens 10–17 dependem do roteiro manual no Windows (`docs/qa-checklist.md`), assim como a conversa com um provider local e um na nuvem de verdade (Fase 4). Da Fase 5, o fluxo de permissão foi testado de ponta a ponta. Da Fase 6: acessibilidade (axe-core e teclado), medição de desempenho (`npm run measure`), vários monitores e escala 150% (E2E com Xorg "dummy") e Fuses no pacote. O primeiro release público depende ainda das decisões D1–D7 (§0.3).
 
 ---
 
@@ -1055,6 +1057,8 @@ O projeto NÃO está pronto só porque o código foi escrito.
 17. Instalador instala e desinstala corretamente.
 
 O agente DEVE relatar quais itens verificou de fato e quais dependem da verificação manual.
+
+*Situação em 25/10/2026 (v0.6.0):* itens 1–9 verificados pelo agente num Linux sem desktop (Xvfb): `npm ci`, typecheck, lint, testes (309), build e E2E (42 testes, 3 rodadas seguidas) verdes; nenhuma chave no repositório e `.env` ignorado; README completo; AppImage gerado, iniciado e com Fuses conferidos. O instalador NSIS do Windows não pode ser gerado neste ambiente: sai do workflow `build-artifacts` ou de `npm run package:win` no Windows. Itens 10–17: pendentes do roteiro manual.
 
 ---
 
@@ -1200,7 +1204,7 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `app:info` | invoke | — → `{ version, electron, chrome, platform, license, repositoryUrl }` |
 | `app:quit` | invoke | — |
 | `log:write` | send | `{ level, message, context? }` (tamanho limitado) |
-| `diagnostics:openLogs` / `diagnostics:copy` | invoke | — |
+| `diagnostics:openLogs` / `diagnostics:copy` | invoke | — / — → `{ copied }` (só Configurações; texto montado no main, sem chaves, conversas, endereço do servidor de IA ou caminhos) |
 
 ---
 

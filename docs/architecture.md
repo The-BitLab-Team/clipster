@@ -1,6 +1,6 @@
 # Arquitetura
 
-Visão do código como está na versão 0.5.0 (Fases 0 a 5). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
+Visão do código como está na versão 0.6.0 (Fases 0 a 6). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
 
 ## Processos
 
@@ -31,7 +31,7 @@ Visão do código como está na versão 0.5.0 (Fases 0 a 5). A especificação c
 
 | Pasta | Conteúdo |
 |-------|----------|
-| `src/main/app` | `controller.ts` (orquestração), `protocol.ts`/`protocolPath.ts` (`app://`), `loginItem.ts`, `pages.ts`, `applicationMenu.ts`, `testHooks.ts` |
+| `src/main/app` | `controller.ts` (orquestração), `diagnostics.ts` (resumo de "Copiar diagnóstico", sem dados pessoais), `protocol.ts`/`protocolPath.ts` (`app://`), `loginItem.ts`, `pages.ts`, `applicationMenu.ts`, `testHooks.ts` |
 | `src/main/character` | `characterStateHost.ts`: roda a máquina de estados com os timers |
 | `src/main/ai` | `assistantService.ts` (conversa, requisição única, tempos-limite, agrupamento de pedaços), `contextBuilder.ts`, `personalityManager.ts`, `errors.ts`, `types.ts` (`AIProvider`), `providerRegistry.ts` (escolhe o provider, prontidão, chaves, modelos, testar conexão), `providers/openaiCompatible.ts`, `providers/anthropic.ts`, `providers/shared.ts` (SSE, erros HTTP → §23), `providers/demo/` (repertório, simulações) |
 | `src/main/tools` | `registry.ts` (ferramentas desta execução, definições para o modelo), `executor.ts` (validação → permissão → execução com tempo-limite → auditoria), `types.ts` (`defineTool`, Zod → JSON Schema), `builtin/` (`getCurrentTime`, `getClipsterVersion`), `dev/` (ferramentas fictícias de teste) |
@@ -178,6 +178,6 @@ Canais em `src/shared/ipc/channels.ts`, payloads em `payloads.ts` e `schemas/con
 | `permissions:respond` | invoke | balão |
 | `permissions:list`, `permissions:revoke` | invoke | configurações |
 | `permissions:changed` | evento main → configurações | — |
-| `diagnostics:openLogs` | invoke | configurações |
+| `diagnostics:openLogs`, `diagnostics:copy` | invoke | configurações |
 | `log:write` | send | todas |
 | `settings:changed`, `windows:settings:navigate` | evento main → renderer | — |

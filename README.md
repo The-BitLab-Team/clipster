@@ -10,7 +10,7 @@ Um pequeno companheiro de desktop, animado, com personalidade e foco em privacid
 
 ## Estado atual
 
-Versão **0.5.0**: Fases 0 a 5 do [roadmap](SPEC.md#34-roadmap) concluídas.
+Versão **0.6.0**: as 7 fases do [roadmap](SPEC.md#34-roadmap) (0 a 6) concluídas no código. Falta o roteiro de QA no Windows ([`docs/qa-checklist.md`](docs/qa-checklist.md)) e as decisões D1–D7 antes do primeiro release público.
 
 | Recurso | Situação |
 |---------|----------|
@@ -32,6 +32,9 @@ Versão **0.5.0**: Fases 0 a 5 do [roadmap](SPEC.md#34-roadmap) concluídas.
 | Chave de API no cofre do sistema, lista de modelos, "Testar conexão", mensagens de erro claras | ✅ |
 | **Ferramentas** (hora e versão do Clipster), com pedido de permissão para o que acessar o computador | ✅ |
 | Privacidade › Permissões: o que já foi permitido, com Revogar | ✅ |
+| Acessibilidade: teclado, leitor de tela, alto contraste; auditoria automática WCAG 2.2 AA | ✅ |
+| Sobre › **Copiar diagnóstico** (versões, sistema, telas; sem chaves nem conversas) | ✅ |
+| Instalador do Windows por usuário (NSIS), sem pedir administrador | ✅ (gerado no Windows ou pelo GitHub) |
 
 ## Conversando com o Clipster
 
@@ -96,6 +99,8 @@ O `npm install` também baixa o Electron. O `npm run dev` abre o Clipster com re
 | `npm run typecheck` | TypeScript estrito nos projetos node, web e e2e. |
 | `npm test` | Testes unitários e de integração (Vitest). |
 | `npm run test:e2e` | Build + testes E2E com Playwright controlando o Electron. |
+| `npm run test:e2e:monitors` | E2E de dois monitores e escala 150% (só Linux, com o driver X "dummy"; ver abaixo). |
+| `npm run measure` | Mede o tempo até o personagem aparecer e a CPU e a memória parado e dormindo (uns 2 min). |
 | `npm run package` | Gera o instalador para o sistema atual em `release/`. Nunca publica nada. |
 | `npm run package:win` | Gera o instalador do Windows (NSIS). |
 | `npm run audit` | Auditoria das dependências de produção. |
@@ -112,7 +117,11 @@ Os testes E2E rodam com `CLIPSTER_E2E=1` e uma pasta de dados temporária: nunca
 
 Para a IA de verdade, os testes sobem servidores locais que seguem os protocolos da OpenAI e da Anthropic (`tests/support/mockProviders.ts`) e conferem a conversa, as chaves e cada mensagem de erro. A conversa com os serviços reais faz parte do roteiro manual.
 
-Alguns comportamentos só podem ser verificados num desktop de verdade (transparência, bandeja, vários monitores). Para eles há o roteiro manual em [`docs/qa-checklist.md`](docs/qa-checklist.md).
+**Acessibilidade:** o E2E roda o [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.0/2.1/2.2 A e AA, mais boas práticas) no personagem, no balão (onboarding, conversa, erro, ferramenta, pedido de permissão, sem IA) e em cada seção das Configurações, nos temas claro e escuro, e confere que tudo funciona pelo teclado com foco visível.
+
+**Vários monitores:** `npm run test:e2e:monitors` sobe um servidor X sem placa de vídeo (driver "dummy", pacote `xserver-xorg-video-dummy`, mais o `xrandr`), liga duas saídas e testa de verdade: arrastar para o segundo monitor, reabrir no mesmo lugar, o balão no mesmo monitor, desligar o monitor com o personagem nele e escala de 150%. Precisa de permissão para iniciar o Xorg; não roda no CI.
+
+Alguns comportamentos só podem ser verificados num desktop de verdade (transparência, bandeja, leitor de tela, escalas diferentes por monitor). Para eles há o roteiro manual em [`docs/qa-checklist.md`](docs/qa-checklist.md).
 
 ## Empacotamento
 
@@ -182,10 +191,17 @@ Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lug
 - O atalho global é fixo (`Ctrl+Shift+Espaço`, `⌘+Shift+Espaço` no macOS); escolher outro fica para uma próxima versão.
 - A OpenAI é usada pela API Chat Completions, que continua suportada; a API Responses fica para depois (ver [`docs/decisions.md`](docs/decisions.md)).
 - Modelos que "pensam" antes de responder: o Clipster mostra o personagem pensando, mas não exibe o raciocínio.
+- **Memória:** medida num Linux sem placa de vídeo, fica em torno de 290 MB (meta da SPEC: 250 MB). Falta medir no Windows com `npm run measure`.
+- Sem atualização automática: "Verificar atualizações" (Configurações › Sobre) abre a página de versões do repositório, e só aparece depois da decisão D6.
 
 ## Roadmap
 
-Fase 6 em [`SPEC.md` §34](SPEC.md#34-roadmap): **polimento e entrega** (acessibilidade, medição de desempenho, vários monitores e DPI, instalador do Windows, roteiro de QA executado).
+As fases 0 a 6 de [`SPEC.md` §34](SPEC.md#34-roadmap) estão no código. Antes do primeiro release público:
+
+1. Roteiro de QA no Windows ([`docs/qa-checklist.md`](docs/qa-checklist.md)), incluindo a conversa com um provider local e um na nuvem.
+2. Decisões D1–D7 da [SPEC §0.3](SPEC.md#03-decisões-pendentes-do-dono-do-produto): licença, nome, visual final, appId, assinatura de código, repositório e IA recomendada.
+
+Depois disso, a lista do que ficou fora do MVP está em [SPEC §35](SPEC.md#35-fora-do-escopo-do-mvp).
 
 ## Licença
 

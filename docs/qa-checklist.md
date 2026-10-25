@@ -2,7 +2,24 @@
 
 Itens que os testes automáticos não conseguem verificar num desktop real (SPEC §29.4 e §36, itens 10–17). Rode antes de cada release, no Windows. Anote o resultado em [`compatibility.md`](compatibility.md).
 
-**Preparação:** `npm install` e depois `npm run dev`, ou instale o pacote gerado por `npm run package:win`.
+**Preparação:** `npm ci`, depois `npm run dev` para os itens marcados "(dev)"; para o resto, gere e instale o pacote com `npm run package:win` (ou pelo workflow **Build artifacts** no GitHub).
+
+## Critério de pronto (SPEC §36, itens 10–17)
+
+O Clipster está pronto para entrega quando todos estes passam no Windows. Cada um aponta para as seções abaixo.
+
+| # | Critério | Onde verificar |
+|---|----------|----------------|
+| 10 | Aparece no desktop, com transparência, sem bloquear cliques fora da silhueta | [Personagem](#personagem) |
+| 11 | Arrasta; posição restaurada ao reabrir, inclusive após trocar de monitor ou resolução | [Arrasto e posição](#arrasto-e-posição) |
+| 12 | Clique abre o balão; o Demo responde aos poucos; os estados mudam certo | [Balão de conversa](#balão-de-conversa-fase-3), [Estados](#estados-do-personagem-fase-2) |
+| 13 | Prestativo/Espirituoso alternam e persistem | [Balão de conversa](#balão-de-conversa-fase-3) |
+| 14 | Bandeja e menu de contexto funcionam | [Bandeja e menus](#bandeja-e-menus) |
+| 15 | Configurações funcionam e persistem | [Configurações](#configurações) |
+| 16 | Fechar/esconder ≠ sair; "Sair" encerra o processo | [Bandeja e menus](#bandeja-e-menus) |
+| 17 | O instalador instala e desinstala corretamente | [Instalador](#instalador-app-empacotado) |
+
+Antes do primeiro release público, também: [IA de verdade](#ia-de-verdade-fase-4) com um provider local e um na nuvem, [Acessibilidade](#acessibilidade) e [Desempenho](#desempenho).
 
 ## Personagem
 
@@ -132,8 +149,9 @@ Estes itens só podem ser feitos com os serviços reais: os testes automáticos 
 - [ ] Arrastar move o personagem suavemente, sem "pular".
 - [ ] Não dá para colocá-lo atrás da barra de tarefas nem fora da tela.
 - [ ] Fechar (Sair) e abrir de novo → ele volta para o mesmo lugar.
-- [ ] **Dois monitores:** arrastar para o segundo monitor funciona; a posição é restaurada lá.
-- [ ] **Monitores com escalas diferentes** (ex.: 100% e 150%): ao cruzar, o tamanho continua correto.
+- [ ] **Dois monitores:** arrastar para o segundo monitor funciona; a posição é restaurada lá. O balão abre no mesmo monitor do personagem.
+- [ ] **Segundo monitor à esquerda ou acima do principal** (coordenadas negativas): arrastar e restaurar funcionam.
+- [ ] **Monitores com escalas diferentes** (ex.: 100% e 150%): ao cruzar, o tamanho continua correto e o balão acompanha.
 - [ ] Desconectar o segundo monitor com o Clipster nele → ele reaparece no principal.
 - [ ] Mudar a resolução para uma menor → ele continua visível.
 
@@ -153,6 +171,7 @@ Estes itens só podem ser feitos com os serviços reais: os testes automáticos 
 ## Configurações
 
 - [ ] Abre por "Configurações…" e recebe foco.
+- [ ] Sobre › **Copiar diagnóstico** → cole no Bloco de Notas: versões, Windows, telas e IA escolhida; nenhuma chave, endereço de servidor ou conversa.
 - [ ] Mudar o idioma para English traduz a janela, a bandeja e o menu de contexto na hora.
 - [ ] Tema escuro e claro funcionam; "Seguir o sistema" acompanha o Windows.
 - [ ] O tamanho do personagem muda ao arrastar o controle (75% a 150%).
@@ -161,14 +180,27 @@ Estes itens só podem ser feitos com os serviços reais: os testes automáticos 
 
 ## Instalador (app empacotado)
 
-- [ ] O instalador roda sem pedir administrador (aviso do SmartScreen esperado: "Mais informações" › "Executar assim mesmo").
-- [ ] Atalhos no Menu Iniciar e na área de trabalho.
-- [ ] "Iniciar com o sistema" fica habilitado; ligado → o Clipster abre ao entrar no Windows.
+- [ ] O instalador (`clipster-<versão>-setup.exe`) roda sem pedir administrador (aviso do SmartScreen esperado: "Mais informações" › "Executar assim mesmo").
+- [ ] Instala em `%LOCALAPPDATA%\Programs\clipster` e abre o Clipster ao terminar.
+- [ ] Atalhos no Menu Iniciar e na área de trabalho, com o ícone do Clipster.
+- [ ] Gerenciador de Tarefas e Configurações do Windows › Aplicativos mostram "Clipster" com o ícone certo.
+- [ ] "Iniciar com o sistema" fica habilitado; ligado → o Clipster abre ao entrar no Windows (e aparece em Gerenciador de Tarefas › Aplicativos de inicialização).
 - [ ] "Iniciar escondido" + iniciar com o sistema → abre só na bandeja.
 - [ ] Abrir o app duas vezes não cria dois Clipsters.
-- [ ] Desinstalar remove o app (as configurações em `%APPDATA%\Clipster` permanecem, por design).
+- [ ] Instalar uma versão nova por cima: configurações, posição e "Iniciar com o sistema" continuam.
+- [ ] Desinstalar (Configurações do Windows › Aplicativos): o app e os atalhos somem; a entrada de inicialização também; as configurações em `%APPDATA%\Clipster` permanecem, por design.
 
-## Desempenho (Gerenciador de Tarefas, após 5 minutos parado)
+## Acessibilidade
 
-- [ ] CPU do Clipster ≈ 0%.
-- [ ] Memória total anotada em `compatibility.md` (meta ≤ 250 MB).
+Os testes automáticos já passam o axe-core (WCAG 2.2 AA) em todas as telas e conferem o foco visível pelo teclado. Falta o que só um desktop de verdade mostra:
+
+- [ ] **Narrador** (`Ctrl+Win+Enter`): o personagem é anunciado com o estado; ao enviar uma pergunta, "Clipster está respondendo"; ao terminar, a resposta inteira uma vez; um pedido de permissão é anunciado ao aparecer.
+- [ ] **Só teclado:** atalho global abre o balão; Tab percorre cabeçalho, mensagens e campo; setas trocam a personalidade; `Esc` para/fecha. Nas Configurações, tudo alcançável com Tab, Espaço e setas.
+- [ ] **Alto contraste** (Configurações do Windows › Acessibilidade › Temas de contraste): balão, cartões de erro e de permissão, chips das ferramentas e Configurações com bordas e textos visíveis; a personalidade escolhida destacada.
+- [ ] **Texto maior** (Acessibilidade › Tamanho do texto 150%) e escala de tela 150%/175%: nada cortado no balão nem nas Configurações.
+
+## Desempenho
+
+- [ ] No projeto, rode `npm run measure` (uns 2 minutos; usa uma pasta de dados temporária). Ele mostra o tempo até o personagem aparecer e a CPU e a memória privada parado e dormindo. Cole a tabela em `compatibility.md` › Medições.
+- [ ] Metas (SPEC §25): personagem em menos de 2 s; CPU parado abaixo de 0,5%; memória até 250 MB.
+- [ ] Com o app instalado, após 5 minutos parado, o Gerenciador de Tarefas mostra CPU ≈ 0% para o Clipster.

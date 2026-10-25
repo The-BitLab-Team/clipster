@@ -178,6 +178,10 @@ export const en = {
   'settings.about.license': 'License',
   'settings.about.licenseValue': 'To be decided',
   'settings.about.repository': 'Repository',
+  'settings.about.copyDiagnostics': 'Copy diagnostics',
+  'settings.about.copied':
+    'Diagnostics copied: versions, system and general settings, with no keys or conversations.',
+  'settings.about.checkUpdates': 'Check for updates',
   'settings.about.openLogs': 'Open logs folder',
   'settings.about.disclaimer': 'Not affiliated with Microsoft.',
 

@@ -324,7 +324,7 @@ export function BalloonApp() {
       data-testid="balloon"
       style={style}
     >
-      <section className="bubble" aria-label={t('balloon.region')}>
+      <main className="bubble" aria-label={t('balloon.region')}>
         <Header
           t={t}
           personality={personality}
@@ -393,7 +393,7 @@ export function BalloonApp() {
         <p className="visually-hidden" aria-live="polite" aria-atomic="true">
           {announcementFor(chat, t, personality)}
         </p>
-      </section>
+      </main>
       <svg
         className="tail"
         width="24"

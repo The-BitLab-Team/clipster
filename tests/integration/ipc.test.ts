@@ -292,6 +292,7 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
         hideClipster: vi.fn(),
         quit: vi.fn(),
         openLogsFolder: vi.fn(() => Promise.resolve()),
+        copyDiagnostics: vi.fn(() => Promise.resolve()),
         openExternal: vi.fn(() => Promise.resolve())
       }
     };
@@ -675,6 +676,18 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
         permissions: { grants: [] }
       })
     ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
+  });
+
+  it('diagnóstico: só as Configurações copiam', async () => {
+    expect(await ipcMain.invoke(IpcChannel.diagnosticsCopy, BALLOON)).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN_SENDER' }
+    });
+    expect(await ipcMain.invoke(IpcChannel.diagnosticsCopy, SETTINGS)).toEqual({
+      ok: true,
+      data: { copied: true }
+    });
+    expect(deps.app.copyDiagnostics).toHaveBeenCalledTimes(1);
   });
 
   it('todos os canais registrados estão na lista explícita', () => {

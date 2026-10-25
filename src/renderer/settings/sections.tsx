@@ -390,6 +390,7 @@ export function PrivacySection({ settings, t, save }: SectionProps) {
 
 export function AboutSection({ info, t }: SectionProps) {
   const repositoryUrl = info.repositoryUrl;
+  const [copied, setCopied] = useState(false);
   return (
     <Card>
       <dl className="facts">
@@ -433,7 +434,35 @@ export function AboutSection({ info, t }: SectionProps) {
         >
           {t('settings.about.openLogs')}
         </button>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            void window.clipster.diagnostics.copy().then((result) => {
+              setCopied(result.ok);
+            });
+          }}
+        >
+          {t('settings.about.copyDiagnostics')}
+        </button>
+        {repositoryUrl !== null && (
+          // Sem atualização automática no MVP: abre a página de versões (SPEC §27.4).
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              void window.clipster.shell.openExternal(`${repositoryUrl}/releases`);
+            }}
+          >
+            {t('settings.about.checkUpdates')}
+          </button>
+        )}
       </div>
+      {copied && (
+        <p className="field__hint" role="status">
+          {t('settings.about.copied')}
+        </p>
+      )}
       <p className="field__hint">{t('settings.about.disclaimer')}</p>
     </Card>
   );

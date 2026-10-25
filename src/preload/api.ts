@@ -141,7 +141,8 @@ export function createClipsterApi(ipc: IpcRendererLike): ClipsterApi {
       openExternal: (url) => invoke(IpcChannel.shellOpenExternal, { url })
     },
     diagnostics: {
-      openLogs: () => invoke(IpcChannel.diagnosticsOpenLogs)
+      openLogs: () => invoke(IpcChannel.diagnosticsOpenLogs),
+      copy: () => invoke(IpcChannel.diagnosticsCopy)
     },
     log: {
       write: (level, message, context) => {

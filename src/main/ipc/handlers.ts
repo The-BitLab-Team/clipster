@@ -101,6 +101,7 @@ export interface IpcHandlerDeps {
     hideClipster: () => void;
     quit: () => void;
     openLogsFolder: () => Promise<void>;
+    copyDiagnostics: () => Promise<void>;
     openExternal: (url: string) => Promise<void>;
   };
 }
@@ -370,6 +371,15 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     async () => {
       await deps.app.openLogsFolder();
       return null;
+    }
+  );
+
+  registry.handle(
+    IpcChannel.diagnosticsCopy,
+    { schema: NoPayloadSchema, roles: ['settings'] },
+    async () => {
+      await deps.app.copyDiagnostics();
+      return { copied: true };
     }
   );
 

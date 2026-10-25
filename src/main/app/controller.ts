@@ -1,3 +1,4 @@
+import { release } from 'node:os';
 import { join } from 'node:path';
 import { rm } from 'node:fs/promises';
 import {
@@ -58,6 +59,7 @@ import { BalloonWindow } from '../windows/balloonWindow';
 import { CharacterWindow } from '../windows/characterWindow';
 import { SettingsWindowManager } from '../windows/settingsWindow';
 import { applyLaunchAtLogin } from './loginItem';
+import { diagnosticsReport } from './diagnostics';
 import { pageUrl } from './pages';
 import type { TestHooks } from './testHooks';
 
@@ -384,6 +386,40 @@ export class AppController {
 
   quit(): void {
     app.quit();
+  }
+
+  /** Resumo técnico para "Copiar diagnóstico" (SPEC §24). Sem chaves, conversas ou caminhos. */
+  diagnostics(): string {
+    const grants = this.permissions.list();
+    return diagnosticsReport({
+      app: {
+        name: APP_NAME,
+        version: app.getVersion(),
+        electron: process.versions.electron,
+        chrome: process.versions.chrome,
+        node: process.versions.node,
+        platform: this.options.platform,
+        arch: process.arch,
+        osRelease: release(),
+        isPackaged: this.options.isPackaged
+      },
+      locale: this.locale,
+      systemLanguages: app.getPreferredSystemLanguages(),
+      settings: this.options.store.get(),
+      ai: this.providers.status(),
+      model: this.providers.model(),
+      secureStorage: this.options.secrets.secureBackend(),
+      displays: screen.getAllDisplays().map((display) => ({
+        width: display.size.width,
+        height: display.size.height,
+        scaleFactor: display.scaleFactor
+      })),
+      permissions: {
+        always: grants.filter((grant) => grant.scope === 'always').length,
+        session: grants.filter((grant) => grant.scope === 'session').length
+      },
+      toolDevTools: this.options.toolDevTools
+    });
   }
 
   appInfo(): AppInfo {
@@ -758,6 +794,7 @@ export class AppController {
           const error = await shell.openPath(this.options.logsDir);
           if (error !== '') this.options.logger.warn('diagnostics.open_logs_failed', { error });
         },
+        copyDiagnostics: () => clipboard.writeText(this.diagnostics()),
         openExternal: (url) => shell.openExternal(url)
       }
     });

@@ -589,8 +589,10 @@ body {
   position: relative;
 }
 
+/* O campo não tem contorno próprio: o anel fica na caixa toda (2 px, como os outros focos). */
 .composer:focus-within {
-  border-color: var(--clp-color-accent);
+  border-color: var(--clp-color-focus);
+  box-shadow: 0 0 0 1px var(--clp-color-focus);
 }
 
 .composer__input {
@@ -796,6 +798,7 @@ body {
   }
 
   .segmented__option[aria-checked='true'] {
+    forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
   }

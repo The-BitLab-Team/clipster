@@ -37,6 +37,7 @@ describe('API do preload (window.clipster)', () => {
     await api.app.quit();
     await api.shell.openExternal('https://example.com');
     await api.diagnostics.openLogs();
+    await api.diagnostics.copy();
     await api.character.getView();
     api.character.onView(() => undefined);
     api.character.dragStart();

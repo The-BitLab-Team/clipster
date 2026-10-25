@@ -66,6 +66,10 @@ Qualquer ferramenta que acesse algo do computador (arquivos, área de transferê
 
 O resultado de uma ferramenta vai para o provedor de IA escolhido, junto com a conversa. O log registra que a ferramenta foi usada, a decisão e se deu certo, nunca os argumentos nem o resultado.
 
+## Copiar diagnóstico
+
+Configurações › Sobre › **Copiar diagnóstico** põe na área de transferência, só quando você clica, um resumo para pedir ajuda: versões do Clipster, do Electron e do sistema, telas e escalas, idioma, a IA escolhida e o modelo, e as preferências gerais. Nunca entram chaves, conversas, o endereço do servidor de IA, caminhos de pastas ou o seu nome de usuário. Nada é enviado: você decide onde colar.
+
 ## Como apagar tudo
 
 Desinstale o app e apague a pasta de dados indicada acima. Para remover só uma chave de API, use "Remover chave" em Configurações › IA.

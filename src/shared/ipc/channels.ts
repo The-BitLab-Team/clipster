@@ -54,6 +54,7 @@ export const IpcChannel = {
   shellOpenExternal: 'shell:openExternal',
   clipboardWriteText: 'clipboard:writeText',
   diagnosticsOpenLogs: 'diagnostics:openLogs',
+  diagnosticsCopy: 'diagnostics:copy',
   logWrite: 'log:write'
 } as const;
 
