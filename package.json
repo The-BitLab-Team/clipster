@@ -1,7 +1,7 @@
 {
   "name": "clipster",
   "productName": "Clipster",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Clipster — um companheiro de desktop animado, com personalidade e foco em privacidade.",
   "author": "Marcos Land",
@@ -33,11 +33,13 @@
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
+    "@types/hast": "^3.0.5",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

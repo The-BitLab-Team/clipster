@@ -26,6 +26,14 @@ export const IpcChannel = {
   chatTyping: 'chat:typing',
   onboardingComplete: 'onboarding:complete',
 
+  secretsSet: 'secrets:set',
+  secretsClear: 'secrets:clear',
+  secretsStatus: 'secrets:status',
+  aiModelsList: 'ai:models:list',
+  aiConnectionTest: 'ai:connection:test',
+  aiStatusGet: 'ai:status:get',
+  aiStatus: 'ai:status',
+
   windowsBalloonClose: 'windows:balloon:close',
   balloonResize: 'balloon:resize',
   balloonPlacement: 'balloon:placement',

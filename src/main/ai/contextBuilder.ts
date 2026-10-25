@@ -68,13 +68,28 @@ function fillPlaceholders(template: string, values: Readonly<Record<BasePlacehol
   ); // `name` checado por Object.hasOwn
 }
 
-/** Só mensagens que o modelo deve ver: sem erros, sem respostas em andamento ou vazias. */
-function usableForContext(message: ConversationMessage): boolean {
-  if (message.role === 'user') return message.content.trim().length > 0;
+function usableReply(message: ConversationMessage): boolean {
   return (
     (message.status === 'complete' || message.status === 'interrupted') &&
     message.content.trim().length > 0
   );
+}
+
+/**
+ * Só mensagens que o modelo deve ver: sem erros, sem respostas em andamento ou vazias.
+ * A pergunta cuja resposta falhou também sai: senão ela seria grudada na pergunta seguinte
+ * (o protocolo exige papéis alternados) e o mesmo erro voltaria — "contexto longo demais",
+ * por exemplo. "Tentar de novo" reenvia a pergunta explicitamente.
+ */
+function usableForContext(
+  message: ConversationMessage,
+  index: number,
+  all: readonly ConversationMessage[]
+): boolean {
+  if (message.role === 'assistant') return usableReply(message);
+  if (message.content.trim().length === 0) return false;
+  const next = all[index + 1];
+  return next?.role !== 'assistant' || usableReply(next);
 }
 
 /**

@@ -115,14 +115,26 @@ describe('ContextBuilder (SPEC §20.2)', () => {
       message('user', 'segunda'),
       message('assistant', '', 'error'),
       message('user', 'terceira'),
-      message('assistant', 'em andamento', 'streaming')
+      message('assistant', 'em andamento', 'streaming'),
+      message('user', 'quarta'),
+      message('assistant', '', 'interrupted'),
+      message('user', 'atual')
     ];
+    // Perguntas sem resposta útil saem junto, para não grudarem na pergunta atual.
     expect(trimHistory(history).map((item) => item.content)).toEqual([
       'primeira',
       'parcial',
-      'segunda',
-      'terceira'
+      'atual'
     ]);
+  });
+
+  it('"Tentar de novo": a pergunta que falhou é a atual e entra', () => {
+    const history = [
+      message('user', 'oi'),
+      message('assistant', 'olá'),
+      message('user', 'de novo')
+    ];
+    expect(trimHistory(history).at(-1)?.content).toBe('de novo');
   });
 
   it('nomes de sistema para o modelo', () => {

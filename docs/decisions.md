@@ -169,3 +169,49 @@ O cabeçalho imita o visor do personagem (vidro escuro, brilho ciano, olhos de p
 
 ### 2026-10-24 · Versão 0.3.0
 Balão de conversa, modo Demo, personalidades em ação, Markdown seguro, histórico opcional e primeira execução (Fase 3).
+
+### 2026-10-24 · `@types/hast` declarado explicitamente
+`Markdown.tsx` importa tipos de `hast`, que antes só chegavam como dependência transitiva de `react-markdown`. Declarar `@types/hast` em `devDependencies` evita quebra se a árvore de dependências mudar. Alternativa descartada: tipar os nós localmente (duplicaria tipos mantidos pela comunidade).
+
+---
+
+## Fase 4 — IA real
+
+### 2026-10-24 · Anthropic pelo SDK oficial; compatível com OpenAI com `fetch` próprio
+`@anthropic-ai/sdk` 1.3 (dependência só do main) traz as classes de erro tipadas, o `request-id` e o streaming da Messages API, como a SPEC §20.4 pede. Configurado com `apiKey` e `baseURL` explícitos (o SDK não procura variáveis de ambiente nem perfis) e `maxRetries: 1`. Para o compatível com OpenAI, `fetch` do Node + um leitor de SSE de ~40 linhas: os servidores locais variam muito, e o SDK da OpenAI seria mais uma dependência grande só para um endpoint. **Descartado:** SDK da OpenAI; Vercel AI SDK (camada a mais entre o Clipster e os erros de cada provider).
+
+### 2026-10-24 · Anthropic: sem parâmetros de amostragem
+Na API atual (versão `2026-10-21`, SDK 1.x), `temperature`, `top_p` e `top_k` são recusados com erro 400. A preferência de temperatura de cada personalidade continua no perfil e vale para os servidores compatíveis com OpenAI; no Claude, o tom vem só das instruções. Modelos com `lifecycle: retired` saem da lista; os `deprecated` aparecem com "(vai ser desativado)".
+
+### 2026-10-24 · OpenAI: Chat Completions, com ajustes para api.openai.com
+O mesmo provider atende Ollama, LM Studio e a OpenAI. Em `api.openai.com`: `max_completion_tokens` no lugar de `max_tokens` e sem `temperature` (os modelos de raciocínio recusam os dois). Se outro servidor recusar `temperature` ou `max_tokens` com 400, o pedido é refeito uma vez sem o parâmetro. Os campos `reasoning`/`reasoning_content` (Ollama, LM Studio, DeepSeek) viram o evento `thinking`. **Adiado:** adaptador da Responses API, que a OpenAI recomenda para projetos novos; Chat Completions continua suportada e é o que os servidores locais implementam.
+
+### 2026-10-24 · Evento `thinking` e tempos-limite de servidor local
+Modelos que "pensam" mandam raciocínio antes do texto. `thinking` zera o cronômetro do primeiro token (há atividade), mas o personagem só passa a "falando" com texto de verdade, e o raciocínio não aparece no balão. Servidores locais (`localhost`, `127.x`, `::1`) têm 90 s até o primeiro token e 5 min no total, porque a primeira pergunta carrega o modelo na memória; nuvem segue 30 s e 2 min (SPEC §20.5). `CLIPSTER_E2E_AI_TIMEOUTS` encurta os dois nos testes.
+
+### 2026-10-24 · Chaves: `secrets.json`, chave presa à origem, confirmação sem cofre
+Cada chave fica cifrada com `safeStorage` em `secrets.json`, com os últimos 4 caracteres à parte para a dica. A chave do compatível com OpenAI guarda a origem (`https://api.openai.com`) em que foi salva e só é enviada para ela: trocar o endereço não vaza a chave para outro servidor (a tela avisa que a chave salva é de outro endereço). Sem cofre de verdade (`basic_text` no Linux, ou criptografia indisponível), salvar exige `allowInsecure: true`, que só a caixa "Entendo o risco" envia; sem ela, o main responde `INSECURE_STORAGE`. Chaves com espaço, menores que 8 ou maiores que 512 caracteres são recusadas.
+
+### 2026-10-24 · `.env` só em desenvolvimento
+`ANTHROPIC_API_KEY` e `OPENAI_API_KEY` são lidos de `.env` na raiz quando o app não está empacotado e não está em E2E. Servem de reserva: uma chave salva pela tela vale mais. `OPENAI_API_KEY` só vale para `https://api.openai.com`. Leitor próprio de 20 linhas. **Descartado:** `dotenv` (dependência para algo trivial).
+
+### 2026-10-24 · Configurações v2
+`ai.baseUrl`/`ai.model` viram `ai.openaiCompatible.{baseUrl, model}`, e `ai.anthropic.model` é novo: trocar de provider não apaga o modelo do outro. Migração v1 → v2 em `settingsRecovery.ts`; arquivo sem versão mas já no formato novo mantém as seções que tiver.
+
+### 2026-10-24 · Prontidão da IA (`ai:status`)
+O main calcula se dá para conversar (`noProvider`, `missingModel`, `missingKey`) e avisa o balão e as Configurações quando isso muda. O balão mostra o aviso certo ("Falta a chave de API", "Falta escolher o modelo") no lugar do campo de texto. Chave obrigatória: Claude sempre; compatível com OpenAI só em `api.openai.com` (servidores locais e outros endereços podem não exigir).
+
+### 2026-10-24 · Canais novos
+`secrets:set` (com `allowInsecure` opcional), `secrets:clear`, `secrets:status`, `ai:models:list`, `ai:connection:test` (só a janela de Configurações) e `ai:status:get` + evento `ai:status` (balão e Configurações). Listar modelos e testar conexão têm 15 s de limite; o detalhe técnico vai só para o log. "Testar conexão" de um endereço que responde mas não fala o protocolo (404 em `/models`) mostra "confira se o endereço termina em /v1".
+
+### 2026-10-24 · Pergunta que falhou sai do contexto
+O protocolo exige papéis alternados; uma pergunta sem resposta seria grudada na seguinte e o mesmo erro voltaria (contexto longo demais, por exemplo). "Tentar de novo" reenvia a pergunta explicitamente. Bug encontrado pelos testes E2E com o servidor simulado.
+
+### 2026-10-24 · Erro de cota: painel da conta
+`QUOTA_OR_BILLING` oferece "Abrir o painel da conta" (SPEC §23) quando o provider é Claude (`https://platform.claude.com/`) ou a OpenAI (`https://platform.openai.com/`), e sempre "Abrir Configurações". Só a página inicial do painel: os caminhos internos mudam mais. O endereço vem do main e o esquema só aceita esses dois.
+
+### 2026-10-24 · Testes com servidores simulados
+`tests/support/mockProviders.ts` sobe servidores HTTP locais que seguem os protocolos (SSE da OpenAI; eventos, erros, `retry-after` e `request-id` da Anthropic) e respondem a marcadores (`[401]`, `[429]`, `[stall]`, `[think]`…). Os testes de unidade e E2E usam os providers de verdade contra eles. `CLIPSTER_E2E_ANTHROPIC_BASE_URL` aponta o Claude para o simulado, só em E2E. A conversa com os serviços reais fica no roteiro manual: este ambiente não tem acesso a eles.
+
+### 2026-10-24 · Versão 0.4.0
+IA real: servidores compatíveis com OpenAI (Ollama, LM Studio, OpenAI) e Claude, chaves no cofre do sistema, lista de modelos, testar conexão e erros da SPEC §23 (Fase 4).

@@ -68,6 +68,43 @@ Em `npm run dev`, use o clique direito › **Pré-visualizar estado (dev)** para
 - [ ] "Limpar histórico" pede confirmação, com o foco em **Cancelar**; confirmar apaga a conversa do balão também.
 - [ ] Desligar "Salvar histórico" pergunta se apaga o que já foi salvo.
 
+## IA de verdade (Fase 4)
+
+Estes itens só podem ser feitos com os serviços reais: os testes automáticos usam servidores simulados.
+
+**Ollama (local):**
+
+- [ ] Instale o Ollama e rode `ollama pull llama3.2` (ou outro modelo pequeno).
+- [ ] Configurações › IA › "Servidor compatível com OpenAI" › atalho **Ollama**: a lista de modelos mostra os modelos baixados.
+- [ ] **Testar conexão** → "Conectado. Modelos disponíveis: N."
+- [ ] No balão, sem o selo Demo: "Como eu renomeio um arquivo?" → personagem pensando → falando → resposta em português, aparecendo aos poucos.
+- [ ] Primeira pergunta depois de abrir o Ollama (modelo frio): demora, mas não dá "A resposta demorou demais" antes de ~90 s.
+- [ ] **Parar** no meio interrompe a resposta (e a GPU/CPU do Ollama para de trabalhar logo depois).
+- [ ] Feche o Ollama e pergunte de novo → "Não consegui me conectar…" com **Tentar de novo**; abra o Ollama e clique em Tentar de novo → funciona.
+- [ ] Endereço `http://localhost:11434` (sem `/v1`) → Testar conexão explica que o endereço deve terminar em `/v1`.
+
+**LM Studio (local):** ligue o servidor (aba Developer), carregue um modelo, use o atalho **LM Studio** e repita: lista de modelos, testar conexão, uma pergunta.
+
+**Claude (nuvem):**
+
+- [ ] Configurações › IA › **Claude**: o balão mostra "Falta a chave de API" até salvar a chave.
+- [ ] Cole a chave e **Salvar chave** → aparece "Chave salva: •••• " e os 4 últimos caracteres; o campo esvazia.
+- [ ] Abra `%APPDATA%\Clipster\secrets.json` no Bloco de Notas: a chave **não** aparece em texto puro. `settings.json` não tem a chave.
+- [ ] A lista de modelos vem da Anthropic (nomes como no Console). Escolha um → Testar conexão → "Conectado".
+- [ ] Uma pergunta em **Prestativo** e outra em **Espirituoso**: o tom muda.
+- [ ] Chave errada (salve uma chave inválida) → "A chave de API foi recusada…" com **Abrir Configurações**.
+- [ ] Modelo inexistente (na lista, "Outro (digitar o nome)" com um nome qualquer) → "O modelo escolhido não está disponível" com **Escolher modelo**.
+- [ ] Sem crédito na conta (se for possível testar) → "O limite de uso ou de cobrança…" com **Abrir o painel da conta**, que abre o Console no navegador.
+- [ ] **Remover chave** → o balão volta a mostrar "Falta a chave de API".
+- [ ] Abra `logs\clipster.log`: nenhuma chave nem texto de conversa.
+
+**OpenAI (nuvem):** atalho **OpenAI**, salve a chave, escolha um modelo da lista (ex.: um modelo de raciocínio e um comum) e faça uma pergunta com cada um. Troque o endereço para o Ollama: a tela avisa que a chave salva é de outro endereço (e o Ollama não recebe a chave).
+
+**Interface:**
+
+- [ ] Configurações › IA navegável só pelo teclado, com foco visível; leitor de tela anuncia o resultado de "Testar conexão".
+- [ ] 125% e 150% de escala: os campos de endereço e chave cabem sem cortar texto.
+
 ## Arrasto e posição
 
 - [ ] Arrastar move o personagem suavemente, sem "pular".

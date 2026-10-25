@@ -14,7 +14,8 @@ Em desenvolvimento (`npm run dev`), a pasta se chama `Clipster (dev)`.
 
 | Arquivo | Conteúdo |
 |---------|----------|
-| `settings.json` | Preferências, personalidade, posição do personagem |
+| `settings.json` | Preferências, personalidade, posição do personagem, provider e modelo de IA escolhidos (nunca a chave) |
+| `secrets.json` | Chaves de API, **cifradas** pelo cofre do sistema. Só existe se você salvar uma chave |
 | `settings.corrupt-<data>.json` | Cópia de segurança, criada só se o arquivo de configurações estiver inválido |
 | `history.json` | Conversas. **Só existe se você ligar** Configurações › Privacidade › "Salvar histórico de conversas" |
 | `history.corrupt-<data>.json` | Cópia de segurança, criada só se o arquivo de histórico estiver ilegível |
@@ -37,13 +38,23 @@ O Chromium também cria pastas de cache próprias (por exemplo `Cache`, `GPUCach
 
 - Não observa tela, teclado, área de transferência, arquivos, outros programas ou histórico do navegador.
 - Não tem telemetria nem estatísticas de uso.
-- Não faz nenhuma requisição de rede ao abrir nem ao conversar no modo Demo. Isso é verificado por testes automatizados que leem o log de rede do Chromium.
+- Não faz nenhuma requisição de rede ao abrir nem ao conversar no modo Demo. Isso é verificado por testes automatizados que leem o log de rede do Chromium. Com uma IA configurada, a rede é usada só para falar com ela.
 - Não carrega imagens que apareçam nas respostas (uma imagem remota poderia avisar a um servidor que a resposta foi lida). No lugar delas aparece só a descrição.
 
-## A partir da Fase 4 (IA)
+## O que vai para a IA
 
-Quando você configurar um provedor de IA, as mensagens que você escrever, junto com as instruções do Clipster e o trecho recente da conversa, serão enviadas **só para o provedor escolhido**: um servidor local (Ollama, LM Studio) ou um serviço na nuvem (Claude, OpenAI). Além do texto da conversa, vão apenas: o nome e a versão do app, o sistema operacional, a data, a hora e o fuso horário. Nunca vão nome de usuário, arquivos, tela ou área de transferência.
+Com uma IA configurada, cada pergunta envia **só para o provedor escolhido** (um servidor local, como Ollama ou LM Studio, ou um serviço na nuvem, como Claude ou OpenAI):
+
+- as instruções do Clipster (personalidade e regras);
+- o trecho recente da conversa (até 20 mensagens ou ~12.000 caracteres);
+- o nome e a versão do app, o sistema operacional, a data, a hora e o fuso horário.
+
+Nunca vão nome de usuário, nome do computador, pasta pessoal, arquivos, tela ou área de transferência (há um teste que confere isso nas instruções enviadas). A chave de API vai só no cabeçalho de autenticação, para o provedor em que foi salva.
+
+Com um servidor **local**, nada sai do seu computador. Com um serviço **na nuvem**, o que você escreve passa a seguir também a política de privacidade desse serviço. O Clipster não manda nada para nenhum outro lugar: listar modelos e "Testar conexão" falam só com o endereço configurado, e só quando você pede.
+
+**Chaves de API:** ficam cifradas em `secrets.json` (DPAPI no Windows, Keychain no macOS, keyring no Linux). A tela de Configurações nunca recebe a chave de volta, só os últimos 4 caracteres. Os logs nunca registram chaves. No Linux sem keyring, a cifra não protege de verdade; o Clipster avisa e só salva se você confirmar.
 
 ## Como apagar tudo
 
-Desinstale o app e apague a pasta de dados indicada acima.
+Desinstale o app e apague a pasta de dados indicada acima. Para remover só uma chave de API, use "Remover chave" em Configurações › IA.

@@ -1,6 +1,8 @@
 import type { ConversationMessage } from '../../shared/ai/conversation';
 import type { Locale } from '../../shared/i18n';
 import type { PersonalityId } from '../../shared/schemas/settings';
+import type { ConnectionErrorCode, ModelInfo } from '../../shared/ai/providers';
+import type { AiTimeouts } from '../../shared/constants/ai';
 import type { ClipsterError } from './errors';
 
 /**
@@ -43,6 +45,8 @@ export interface ChatRequest {
 
 export type ChatStreamEvent =
   | { type: 'text-delta'; text: string }
+  /** O modelo está "pensando" antes de responder: a resposta começou, mas ainda sem texto. */
+  | { type: 'thinking' }
   | {
       type: 'done';
       stopReason?: string;
@@ -55,17 +59,20 @@ export interface ChatResponse {
   stopReason?: string;
 }
 
-export interface ModelInfo {
-  id: string;
-  name: string;
-}
+export type { ModelInfo } from '../../shared/ai/providers';
 
+/** Resultado de "Testar conexão" no main; `detail` vai só para o log. */
 export type ConnectionStatus =
-  { status: 'connected' } | { status: 'error'; code: ClipsterError['code']; message: string };
+  | { status: 'connected'; modelCount: number }
+  | { status: 'error'; code: ConnectionErrorCode; detail: string };
 
 export interface AIProvider {
   readonly id: ProviderId;
   readonly capabilities: ProviderCapabilities;
+  /** Tempos-limite próprios (ex.: modelo local carregando na primeira pergunta). */
+  readonly timeouts?: AiTimeouts;
+  /** Painel da conta, oferecido no erro de cota/cobrança (só providers na nuvem). */
+  readonly consoleUrl?: string;
   streamResponse(request: ChatRequest): AsyncIterable<ChatStreamEvent>;
   /** Conveniência: consome o stream inteiro. */
   generateResponse(request: ChatRequest): Promise<ChatResponse>;
@@ -81,6 +88,7 @@ export async function collectResponse(
   for await (const event of stream) {
     if (event.type === 'text-delta') text += event.text;
     else if (event.type === 'error') throw event.error;
+    else if (event.type === 'thinking') continue;
     else return event.stopReason === undefined ? { text } : { text, stopReason: event.stopReason };
   }
   return { text };

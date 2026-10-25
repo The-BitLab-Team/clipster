@@ -10,6 +10,7 @@ import {
 import type { ConversationMessage } from '../../src/shared/ai/conversation';
 import { createTranslator } from '../../src/shared/i18n';
 import { errorActions, errorMessage, showsSupportCode } from '../../src/shared/errors/messages';
+import { StoredMessageSchema } from '../../src/shared/schemas/conversation';
 import { CLIPSTER_ERROR_CODES } from '../../src/shared/errors/codes';
 
 const AT = '2026-10-24T12:00:00.000Z';
@@ -119,5 +120,24 @@ describe('mensagens de erro (SPEC §23)', () => {
     expect(showsSupportCode({ code: 'UNKNOWN', supportCode: 'CLP-9F00' })).toBe(false);
     expect(showsSupportCode({ code: 'TIMEOUT', supportCode: 'CLP-9F00' })).toBe(true);
     expect(errorActions({ code: 'PROVIDER_NOT_CONFIGURED' })).toEqual(['configureAi', 'useDemo']);
+  });
+
+  it('cota/cobrança: painel da conta só quando o main informou um painel conhecido', () => {
+    expect(errorActions({ code: 'QUOTA_OR_BILLING' })).toEqual(['openSettings']);
+    expect(
+      errorActions({ code: 'QUOTA_OR_BILLING', consoleUrl: 'https://platform.claude.com/' })
+    ).toEqual(['openConsole', 'openSettings']);
+    const message = (consoleUrl: string) => ({
+      id: 'm1',
+      role: 'assistant',
+      content: '',
+      createdAt: '2026-10-24T21:30:00.000Z',
+      status: 'error',
+      error: { code: 'QUOTA_OR_BILLING', consoleUrl }
+    });
+    expect(StoredMessageSchema.safeParse(message('https://platform.openai.com/')).success).toBe(
+      true
+    );
+    expect(StoredMessageSchema.safeParse(message('https://phishing.example/')).success).toBe(false);
   });
 });

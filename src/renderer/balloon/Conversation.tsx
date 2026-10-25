@@ -15,7 +15,7 @@ interface ConversationProps {
   personality: PersonalityId;
   /** Conteúdo para a conversa vazia (saudação, sugestões). */
   empty: ReactNode;
-  onErrorAction: (action: ErrorAction) => void;
+  onErrorAction: (action: ErrorAction, error: ChatErrorInfo) => void;
 }
 
 export function Conversation({ t, items, personality, empty, onErrorAction }: ConversationProps) {
@@ -69,7 +69,7 @@ interface MessageViewProps {
   t: Translator;
   message: ConversationMessage;
   personality: PersonalityId;
-  onErrorAction: (action: ErrorAction) => void;
+  onErrorAction: (action: ErrorAction, error: ChatErrorInfo) => void;
 }
 
 function MessageView({ t, message, personality, onErrorAction }: MessageViewProps) {
@@ -121,7 +121,7 @@ interface ErrorCardProps {
   t: Translator;
   error: ChatErrorInfo;
   personality: PersonalityId;
-  onAction: (action: ErrorAction) => void;
+  onAction: (action: ErrorAction, error: ChatErrorInfo) => void;
 }
 
 /** "Tentar de novo" só depois da espera indicada pelo provider (RATE_LIMITED). */
@@ -163,7 +163,7 @@ function ErrorCard({ t, error, personality, onAction }: ErrorCardProps) {
                 className="button button--small"
                 disabled={waiting}
                 onClick={() => {
-                  onAction(action);
+                  onAction(action, error);
                 }}
               >
                 {waiting

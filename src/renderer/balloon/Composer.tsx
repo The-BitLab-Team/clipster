@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { MAX_USER_MESSAGE_CHARS } from '../../shared/constants/ai';
 import { TYPING_NOTIFY_INTERVAL_MS } from '../../shared/constants/ui';
+import type { AiIssue } from '../../shared/ai/providers';
 import type { Translator } from '../../shared/i18n';
 import { IconSend, IconStop } from './icons';
 
@@ -114,16 +115,30 @@ export function Composer({ t, inputRef, generating, onSend, onStop }: ComposerPr
 
 interface NoProviderProps {
   t: Translator;
+  /** O que falta: nenhuma IA, a chave ou o modelo. */
+  issue: AiIssue;
   onConfigure: () => void;
   onUseDemo: () => void;
 }
 
 /** Sem IA configurada: o balão explica e oferece as duas saídas (SPEC §8.1). */
-export function NoProvider({ t, onConfigure, onUseDemo }: NoProviderProps) {
+export function NoProvider({ t, issue, onConfigure, onUseDemo }: NoProviderProps) {
+  const title =
+    issue === 'missingKey'
+      ? t('balloon.noProvider.missingKey.title')
+      : issue === 'missingModel'
+        ? t('balloon.noProvider.missingModel.title')
+        : t('balloon.noProvider.title');
+  const body =
+    issue === 'missingKey'
+      ? t('balloon.noProvider.missingKey.body')
+      : issue === 'missingModel'
+        ? t('balloon.noProvider.missingModel.body')
+        : t('balloon.noProvider.body');
   return (
-    <div className="no-provider" data-testid="no-provider">
-      <p className="no-provider__title">{t('balloon.noProvider.title')}</p>
-      <p className="no-provider__body">{t('balloon.noProvider.body')}</p>
+    <div className="no-provider" data-testid="no-provider" data-issue={issue}>
+      <p className="no-provider__title">{title}</p>
+      <p className="no-provider__body">{body}</p>
       <div className="no-provider__actions">
         <button type="button" className="button button--primary" onClick={onUseDemo}>
           {t('balloon.noProvider.demo')}

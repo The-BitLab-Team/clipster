@@ -8,6 +8,7 @@ describe('API do preload (window.clipster)', () => {
   it('expõe só os grupos previstos, sem ipcRenderer', () => {
     const api = createClipsterApi(new FakeIpcRenderer());
     expect(Object.keys(api).sort()).toEqual([
+      'ai',
       'app',
       'balloon',
       'character',
@@ -58,6 +59,14 @@ describe('API do preload (window.clipster)', () => {
     api.balloon.onPlacement(() => undefined);
     api.balloon.onShown(() => undefined);
     await api.clipboard.writeText('texto');
+    await api.ai.status();
+    api.ai.onStatus(() => undefined);
+    await api.ai.keyStatus('anthropic');
+    await api.ai.setKey('anthropic', 'sk-ant-1234567890');
+    await api.ai.setKey('openai-compatible', 'sk-1234567890', true);
+    await api.ai.clearKey('anthropic');
+    await api.ai.listModels('openai-compatible');
+    await api.ai.testConnection('anthropic');
 
     const known = new Set<string>(Object.values(IpcChannel));
     for (const call of [...ipc.invoked, ...ipc.sent]) expect(known.has(call.channel)).toBe(true);
@@ -76,6 +85,14 @@ describe('API do preload (window.clipster)', () => {
       args: [{ confirmed: true }]
     });
     expect(ipc.sent).toContainEqual({ channel: IpcChannel.balloonResize, args: [{ height: 241 }] });
+    expect(ipc.invoked).toContainEqual({
+      channel: IpcChannel.secretsSet,
+      args: [{ provider: 'anthropic', value: 'sk-ant-1234567890' }]
+    });
+    expect(ipc.invoked).toContainEqual({
+      channel: IpcChannel.secretsSet,
+      args: [{ provider: 'openai-compatible', value: 'sk-1234567890', allowInsecure: true }]
+    });
   });
 
   it('não repassa campos extras no arrasto', () => {

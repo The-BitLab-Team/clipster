@@ -70,6 +70,61 @@ export const ptBR = {
   'settings.personality.hint':
     'A personalidade muda o tom das respostas, não o que o Clipster sabe fazer.',
 
+  'settings.ai.provider.openaiCompatible':
+    'Servidor compatível com OpenAI (Ollama, LM Studio, OpenAI)',
+  'settings.ai.provider.anthropic': 'Claude (Anthropic)',
+  'settings.ai.openaiHint':
+    'Ollama e LM Studio rodam no seu computador, de graça. A OpenAI é paga e exige chave.',
+  'settings.ai.anthropicHint': 'Precisa de uma chave de API da Anthropic (serviço pago).',
+  'settings.ai.serverCard': 'Servidor',
+  'settings.ai.server': 'Endereço do servidor',
+  'settings.ai.server.hint': 'Termina em /v1. Use um atalho ou digite o endereço e tecle Enter.',
+  'settings.ai.server.invalid': 'Use um endereço que comece com http:// ou https://.',
+  'settings.ai.presets': 'Atalhos',
+  'settings.ai.preset.ollama': 'Ollama',
+  'settings.ai.preset.lmstudio': 'LM Studio',
+  'settings.ai.preset.openai': 'OpenAI',
+  'settings.ai.key': 'Chave de API',
+  'settings.ai.key.optional': 'Servidores locais normalmente não pedem chave.',
+  'settings.ai.key.placeholder': 'Cole a chave aqui',
+  'settings.ai.key.save': 'Salvar chave',
+  'settings.ai.key.remove': 'Remover chave',
+  'settings.ai.key.saved': 'Chave salva: •••• {hint}',
+  'settings.ai.key.savedNoHint': 'Chave salva.',
+  'settings.ai.key.fromEnv': 'Usando a chave do arquivo .env (só em desenvolvimento).',
+  'settings.ai.key.never': 'A chave fica cifrada no cofre do sistema e nunca volta para esta tela.',
+  'settings.ai.key.insecure':
+    'Este sistema não tem um cofre de senhas ativo (como o GNOME Keyring ou o KWallet). A chave ficaria guardada sem proteção de verdade.',
+  'settings.ai.key.insecureConfirm': 'Entendo o risco: salvar mesmo assim',
+  'settings.ai.key.otherServer':
+    'A chave salva é de {origin} e não será enviada para este endereço.',
+  'settings.ai.key.httpWarning':
+    'Este endereço usa http:// fora do seu computador: a chave viajaria sem criptografia. Prefira https:// ou um servidor local.',
+  'settings.ai.key.invalid':
+    'Essa chave não parece válida: ela precisa ter ao menos 8 caracteres e nenhum espaço.',
+  'settings.ai.model': 'Modelo',
+  'settings.ai.model.choose': 'Escolha um modelo',
+  'settings.ai.model.custom': 'Outro (digitar o nome)',
+  'settings.ai.model.customLabel': 'Nome do modelo',
+  'settings.ai.model.customHint': 'Digite o nome exato e tecle Enter.',
+  'settings.ai.model.refresh': 'Atualizar lista',
+  'settings.ai.model.loading': 'Buscando modelos…',
+  'settings.ai.model.deprecated': '{name} (vai ser desativado)',
+  'settings.ai.model.empty':
+    'Nenhum modelo encontrado. No Ollama, baixe um com "ollama pull" e atualize a lista.',
+  'settings.ai.model.listFailed': 'Não foi possível buscar a lista: {reason}',
+  'settings.ai.test': 'Testar conexão',
+  'settings.ai.testing': 'Testando…',
+  'settings.ai.connection.ok': 'Conectado. Modelos disponíveis: {count}.',
+  'settings.ai.connection.notCompatible':
+    'O endereço respondeu, mas não parece um servidor compatível com a OpenAI. Confira se ele termina em /v1.',
+  'settings.ai.connection.unknown':
+    'Não foi possível conectar. O detalhe técnico ficou no log (Sobre › Abrir pasta de logs).',
+  'settings.ai.connection.missingKey': 'Falta a chave de API.',
+  'settings.ai.privacyNote':
+    'Com uma IA na nuvem, suas mensagens vão para o provedor escolhido. Com Ollama ou LM Studio, tudo fica no seu computador.',
+
+  'settings.appearance.chatScale': 'Tamanho do balão de conversa',
   'settings.appearance.characterScale': 'Tamanho do personagem',
   'settings.appearance.animations': 'Animações',
   'settings.appearance.animations.system': 'Seguir o sistema',
@@ -96,9 +151,6 @@ export const ptBR = {
   'settings.ai.provider.demo': 'Modo demonstração',
   'settings.ai.demoHint': 'Respostas de exemplo, pré-programadas: sem IA e sem internet.',
   'settings.ai.noneHint': 'Sem IA, o balão mostra como configurar uma.',
-  'settings.ai.comingSoon':
-    'A conexão com Ollama, LM Studio, Claude e OpenAI chega na próxima versão. Até lá, nada sai do seu computador.',
-  'settings.appearance.chatScale': 'Tamanho do balão de conversa',
   'settings.privacy.saveHistory': 'Salvar histórico de conversas',
   'settings.privacy.saveHistory.hint':
     'Fica só neste computador. Desligado, a conversa dura até "Nova conversa" ou até fechar o app.',
@@ -155,6 +207,12 @@ export const ptBR = {
   'balloon.noProvider.body': 'Para conversar, configure uma IA ou experimente o modo demonstração.',
   'balloon.noProvider.configure': 'Configurar IA',
   'balloon.noProvider.demo': 'Usar modo demonstração',
+  'balloon.noProvider.missingKey.title': 'Falta a chave de API',
+  'balloon.noProvider.missingKey.body':
+    'Informe a chave em Configurações › IA, ou use o modo demonstração.',
+  'balloon.noProvider.missingModel.title': 'Falta escolher o modelo',
+  'balloon.noProvider.missingModel.body':
+    'Escolha um modelo em Configurações › IA, ou use o modo demonstração.',
   'balloon.suggestions.label': 'Experimente perguntar',
   'balloon.suggestion.rename': 'Como eu renomeio um arquivo?',
   'balloon.suggestion.screenshot': 'Como faço uma captura de tela?',
@@ -195,6 +253,7 @@ export const ptBR = {
   'error.action.configureAi': 'Configurar IA',
   'error.action.useDemo': 'Modo demonstração',
   'error.action.openSettings': 'Abrir Configurações',
+  'error.action.openConsole': 'Abrir o painel da conta',
   'error.action.chooseModel': 'Escolher modelo',
   'error.action.retry': 'Tentar de novo',
   'error.action.newConversation': 'Nova conversa',

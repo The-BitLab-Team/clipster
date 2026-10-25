@@ -1,4 +1,13 @@
 import type { ConversationSnapshot } from '../../shared/ai/conversation';
+import type {
+  AiStatus,
+  ConnectionResult,
+  KeyedProvider,
+  KeyStatus,
+  ModelListResult
+} from '../../shared/ai/providers';
+import { ProviderPayloadSchema, SecretSetPayloadSchema } from '../../shared/schemas/ai';
+import { SecretError } from '../storage/secretStore';
 import type { AppCapabilities, AppInfo, OnboardingResult } from '../../shared/ipc/api';
 import { IpcChannel } from '../../shared/ipc/channels';
 import {
@@ -64,6 +73,14 @@ export interface IpcHandlerDeps {
   balloon: {
     close: () => void;
     resize: (height: number) => void;
+  };
+  ai: {
+    status: () => AiStatus;
+    keyStatus: (provider: KeyedProvider) => KeyStatus;
+    setKey: (provider: KeyedProvider, value: string, allowInsecure: boolean) => KeyStatus;
+    clearKey: (provider: KeyedProvider) => KeyStatus;
+    listModels: (provider: KeyedProvider) => Promise<ModelListResult>;
+    testConnection: (provider: KeyedProvider) => Promise<ConnectionResult>;
   };
   clipboard: {
     writeText: (text: string) => Promise<void>;
@@ -215,6 +232,49 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       deps.onboarding.complete(result);
       return null;
     }
+  );
+
+  // ── IA e chaves (SPEC §20, §21): só as Configurações mexem em chaves e testam conexão.
+
+  registry.handle(IpcChannel.aiStatusGet, { schema: NoPayloadSchema, roles: UI_WINDOWS }, () =>
+    deps.ai.status()
+  );
+  registry.handle(
+    IpcChannel.secretsStatus,
+    { schema: ProviderPayloadSchema, roles: SETTINGS_ONLY },
+    ({ provider }) => deps.ai.keyStatus(provider)
+  );
+  registry.handle(
+    IpcChannel.secretsSet,
+    { schema: SecretSetPayloadSchema, roles: SETTINGS_ONLY },
+    ({ provider, value, allowInsecure }) => {
+      try {
+        return deps.ai.setKey(provider, value, allowInsecure === true);
+      } catch (error) {
+        if (!(error instanceof SecretError)) throw error;
+        if (error.code === 'INSECURE_STORAGE') {
+          throw new IpcHandlerError('INSECURE_STORAGE', error.message);
+        }
+        if (error.code === 'INVALID_KEY')
+          throw new IpcHandlerError('INVALID_PAYLOAD', error.message);
+        throw new IpcHandlerError('INTERNAL', error.message);
+      }
+    }
+  );
+  registry.handle(
+    IpcChannel.secretsClear,
+    { schema: ProviderPayloadSchema, roles: SETTINGS_ONLY },
+    ({ provider }) => deps.ai.clearKey(provider)
+  );
+  registry.handle(
+    IpcChannel.aiModelsList,
+    { schema: ProviderPayloadSchema, roles: SETTINGS_ONLY },
+    ({ provider }) => deps.ai.listModels(provider)
+  );
+  registry.handle(
+    IpcChannel.aiConnectionTest,
+    { schema: ProviderPayloadSchema, roles: SETTINGS_ONLY },
+    ({ provider }) => deps.ai.testConnection(provider)
   );
 
   registry.handle(

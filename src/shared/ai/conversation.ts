@@ -21,6 +21,8 @@ export interface ChatErrorInfo {
   retryAfterSeconds?: number;
   /** Código curto para suporte (ex.: CLP-3F2A), também registrado no log. */
   supportCode?: string;
+  /** Para QUOTA_OR_BILLING: painel da conta no provider (só endereços conhecidos, ver `PROVIDER_CONSOLES`). */
+  consoleUrl?: string;
 }
 
 export interface ConversationMessage {

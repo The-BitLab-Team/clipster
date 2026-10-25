@@ -13,7 +13,8 @@ import {
 } from 'electron';
 import type { ChatEvent } from '../../shared/ai/conversation';
 import { isCharacterState, type CharacterState } from '../../shared/character/states';
-import type { DemoTiming } from '../../shared/constants/ai';
+import type { AiStatus } from '../../shared/ai/providers';
+import type { AiTimeouts, DemoTiming } from '../../shared/constants/ai';
 import { APP_NAME, REPOSITORY_URL } from '../../shared/constants/app';
 import {
   BALLOON_PRECREATE_DELAY_MS,
@@ -31,8 +32,8 @@ import type {
 } from '../../shared/schemas/settings';
 import { AssistantService, type ChatTarget } from '../ai/assistantService';
 import { PersonalityManager } from '../ai/personalityManager';
-import { DEMO_MODEL, DemoProvider } from '../ai/providers/demo/demoProvider';
-import type { AIProvider } from '../ai/types';
+import { ProviderRegistry } from '../ai/providerRegistry';
+import { DemoProvider } from '../ai/providers/demo/demoProvider';
 import { CharacterStateHost } from '../character/characterStateHost';
 import { registerIpcHandlers } from '../ipc/handlers';
 import { IpcHandlerError, IpcRegistry, type WindowRole } from '../ipc/registry';
@@ -47,6 +48,7 @@ import {
 } from '../menus/menuFactory';
 import { isTrustedRendererUrl } from '../security/urls';
 import { HistoryStore } from '../storage/historyStore';
+import type { SecretStore } from '../storage/secretStore';
 import type { SettingsStore } from '../storage/settingsStore';
 import { TrayController } from '../tray/trayController';
 import { BalloonWindow } from '../windows/balloonWindow';
@@ -82,6 +84,12 @@ export interface AppControllerOptions {
   sleepAfterMsOverride: number | null;
   /** Só para E2E: ritmo do Demo. `null` = padrão. */
   demoTiming: DemoTiming | null;
+  /** Cofre das chaves de API (carregado depois do `ready`, por causa do safeStorage). */
+  secrets: SecretStore;
+  /** Só para E2E: servidor simulado no lugar de api.anthropic.com. */
+  anthropicBaseUrl: string | null;
+  /** Só para E2E: tempos-limite curtos, acima dos de cada provider. */
+  aiTimeoutsOverride: AiTimeouts | null;
 }
 
 export class AppController {
@@ -99,7 +107,9 @@ export class AppController {
   private readonly characterState: CharacterStateHost;
   private readonly personalities: PersonalityManager;
   private readonly demo: DemoProvider;
+  private readonly providers: ProviderRegistry;
   private readonly assistant: AssistantService;
+  private lastAiStatus: string | null = null;
 
   constructor(private readonly options: AppControllerOptions) {
     const settings = options.store.get();
@@ -128,10 +138,18 @@ export class AppController {
 
     if (settings.privacy.saveHistory) this.history = this.loadHistory(settings);
 
+    this.providers = new ProviderRegistry({
+      settings: () => options.store.get().ai,
+      secrets: options.secrets,
+      demo: this.demo,
+      logger: options.logger.child('ai'),
+      anthropicBaseUrl: options.anthropicBaseUrl
+    });
+
     this.assistant = new AssistantService({
-      resolveProvider: () => this.resolveProvider(),
-      model: () =>
-        options.store.get().ai.provider === 'demo' ? DEMO_MODEL.id : options.store.get().ai.model,
+      resolveProvider: () => this.providers.resolve(),
+      model: () => this.providers.model(),
+      forceTimeouts: options.aiTimeoutsOverride,
       personality: () => this.personalities.active,
       uiLocale: () => this.locale,
       environment: () => ({
@@ -511,15 +529,18 @@ export class AppController {
     this.tray?.showHint(this.t('tip.hidden.title'), this.t('tip.hidden.body'));
   }
 
-  private resolveProvider(): AIProvider | null {
-    switch (this.options.store.get().ai.provider) {
-      case 'demo':
-        return this.demo;
-      case 'none':
-      case 'openai-compatible':
-      case 'anthropic':
-        // Providers reais chegam na Fase 4.
-        return null;
+  /** Avisa balão e Configurações quando muda o que falta para conversar (SPEC §8.1). */
+  private broadcastAiStatus(): void {
+    const status = this.providers.status();
+    const serialized = JSON.stringify(status);
+    if (serialized === this.lastAiStatus) return;
+    this.lastAiStatus = serialized;
+    this.sendToUiWindows(IpcChannel.aiStatus, status);
+  }
+
+  private sendToUiWindows(channel: typeof IpcChannel.aiStatus, payload: AiStatus): void {
+    for (const win of [this.balloon?.window ?? null, this.settingsWindow.browserWindow]) {
+      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
     }
   }
 
@@ -662,6 +683,22 @@ export class AppController {
       clipboard: {
         writeText: (text) => clipboard.writeText(text)
       },
+      ai: {
+        status: () => this.providers.status(),
+        keyStatus: (provider) => this.providers.keyStatus(provider),
+        setKey: (provider, value, allowInsecure) => {
+          const status = this.providers.setKey(provider, value, allowInsecure);
+          this.broadcastAiStatus();
+          return status;
+        },
+        clearKey: (provider) => {
+          const status = this.providers.clearKey(provider);
+          this.broadcastAiStatus();
+          return status;
+        },
+        listModels: (provider) => this.providers.listModels(provider),
+        testConnection: (provider) => this.providers.testConnection(provider)
+      },
       app: {
         info: () => this.appInfo(),
         openSettings: (section) => {
@@ -726,6 +763,8 @@ export class AppController {
     } else if (next.privacy.historyRetentionDays !== previous.privacy.historyRetentionDays) {
       this.history?.setRetention(next.privacy.historyRetentionDays);
     }
+
+    if (JSON.stringify(next.ai) !== JSON.stringify(previous.ai)) this.broadcastAiStatus();
 
     const menuRelevant =
       next.general.language !== previous.general.language ||

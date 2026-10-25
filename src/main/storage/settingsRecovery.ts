@@ -32,15 +32,41 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Migrações de esquema. A versão 1 é a primeira; arquivos sem versão são tratados como v1. */
+/**
+ * v1 → v2: `ai.baseUrl`/`ai.model` passam a ser do provedor compatível com OpenAI.
+ * Arquivo sem `schemaVersion` mas já no formato novo (editado à mão, por exemplo) mantém
+ * as seções `openaiCompatible`/`anthropic` que já tiver.
+ */
+function migrateV1toV2(raw: UnknownRecord): UnknownRecord {
+  const ai = isRecord(raw.ai) ? raw.ai : {};
+  const { baseUrl, model, openaiCompatible, anthropic, ...rest } = ai;
+  const legacy: UnknownRecord = {};
+  if (baseUrl !== undefined) legacy.baseUrl = baseUrl;
+  if (model !== undefined) legacy.model = model;
+  return {
+    ...raw,
+    schemaVersion: 2,
+    ai: {
+      ...rest,
+      openaiCompatible: {
+        ...DEFAULT_SETTINGS.ai.openaiCompatible,
+        ...(isRecord(openaiCompatible) ? openaiCompatible : {}),
+        ...legacy
+      },
+      anthropic: isRecord(anthropic) ? anthropic : DEFAULT_SETTINGS.ai.anthropic
+    }
+  };
+}
+
+/**
+ * Migrações de esquema, em ordem. Arquivo sem versão é tratado como v1.
+ * Arquivo de uma versão mais nova (downgrade): mantém o que for compatível.
+ */
 export function migrateSettings(raw: UnknownRecord): UnknownRecord {
-  const version = raw.schemaVersion;
-  if (version === undefined || version === SETTINGS_SCHEMA_VERSION) {
-    return { ...raw, schemaVersion: SETTINGS_SCHEMA_VERSION };
-  }
-  // Futuras migrações entram aqui, em ordem: if (version === 1) raw = migrateV1toV2(raw) ...
-  // Arquivo de uma versão mais nova (downgrade): mantém o que for compatível.
-  return { ...raw, schemaVersion: SETTINGS_SCHEMA_VERSION };
+  const version = raw.schemaVersion ?? 1;
+  let current = raw;
+  if (version === 1) current = migrateV1toV2(current);
+  return { ...current, schemaVersion: SETTINGS_SCHEMA_VERSION };
 }
 
 function recoverSection<S extends z.ZodObject>(

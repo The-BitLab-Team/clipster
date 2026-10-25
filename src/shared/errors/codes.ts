@@ -38,7 +38,13 @@ export type SoftenableErrorCode = (typeof SOFTENABLE_ERROR_CODES)[number];
 export type DisplayedErrorCode = Exclude<ClipsterErrorCode, 'CANCELLED'>;
 
 export type ErrorAction =
-  'configureAi' | 'useDemo' | 'openSettings' | 'chooseModel' | 'retry' | 'newConversation';
+  | 'configureAi'
+  | 'useDemo'
+  | 'openSettings'
+  | 'openConsole'
+  | 'chooseModel'
+  | 'retry'
+  | 'newConversation';
 
 /** Ações oferecidas junto com cada erro (SPEC §23). */
 export const ERROR_ACTIONS: Readonly<Record<ClipsterErrorCode, readonly ErrorAction[]>> = {
@@ -46,7 +52,7 @@ export const ERROR_ACTIONS: Readonly<Record<ClipsterErrorCode, readonly ErrorAct
   AUTH_INVALID: ['openSettings'],
   MODEL_NOT_FOUND: ['chooseModel'],
   RATE_LIMITED: ['retry'],
-  QUOTA_OR_BILLING: ['openSettings'],
+  QUOTA_OR_BILLING: ['openConsole', 'openSettings'],
   PROVIDER_OVERLOADED: ['retry'],
   TIMEOUT: ['retry'],
   OFFLINE: ['retry'],

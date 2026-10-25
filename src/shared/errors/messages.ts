@@ -22,8 +22,12 @@ export function errorMessage(
   return t(`error.${code}`, vars);
 }
 
+/** Ações do erro; "Abrir o painel da conta" só quando o main informou o painel. */
 export function errorActions(error: ChatErrorInfo): readonly ErrorAction[] {
-  return ERROR_ACTIONS[error.code];
+  const actions = ERROR_ACTIONS[error.code];
+  return error.consoleUrl === undefined
+    ? actions.filter((action) => action !== 'openConsole')
+    : actions;
 }
 
 /** O código de suporte aparece à parte, exceto em UNKNOWN, cuja frase já o inclui. */

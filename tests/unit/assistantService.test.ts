@@ -37,8 +37,8 @@ class ScriptedProvider implements AIProvider {
   listModels(): Promise<never[]> {
     return Promise.resolve([]);
   }
-  testConnection(): Promise<{ status: 'connected' }> {
-    return Promise.resolve({ status: 'connected' });
+  testConnection(): Promise<{ status: 'connected'; modelCount: number }> {
+    return Promise.resolve({ status: 'connected', modelCount: 0 });
   }
 }
 
@@ -251,6 +251,43 @@ describe('AssistantService', () => {
     expect(h.character.at(-1)).toBe('AI_ERROR');
   });
 
+  it('modelo pensando conta como resposta começada: não estoura os 30 s do primeiro texto', async () => {
+    const h = harness();
+    const provider = new ScriptedProvider();
+    provider.next = async function* () {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 10_000));
+      yield { type: 'thinking' };
+      await new Promise((resolveWait) => setTimeout(resolveWait, 35_000));
+      yield { type: 'text-delta', text: 'Pronto.' };
+      yield { type: 'done' };
+    };
+    h.setProvider(provider);
+    h.service.send('pense bem', REQUESTER);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.service.snapshot().messages[1]).toMatchObject({
+      status: 'complete',
+      content: 'Pronto.'
+    });
+    // O personagem só passa a "falando" com o primeiro texto.
+    expect(h.character).toEqual(['MESSAGE_SENT', 'FIRST_TOKEN', 'STREAM_DONE']);
+  });
+
+  it('tempos-limite do provider têm prioridade (ex.: modelo local carregando)', async () => {
+    const h = harness();
+    const provider = Object.assign(new ScriptedProvider(), {
+      timeouts: { firstTokenMs: 90_000, totalMs: 300_000 }
+    });
+    provider.next = async function* () {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 60_000));
+      yield { type: 'text-delta', text: 'Carreguei.' };
+      yield { type: 'done' };
+    };
+    h.setProvider(provider);
+    h.service.send('oi', REQUESTER);
+    await vi.advanceTimersByTimeAsync(61_000);
+    expect(h.service.snapshot().messages[1]?.status).toBe('complete');
+  });
+
   it('resposta que passa de 120 s no total → TIMEOUT, mantendo o que já chegou', async () => {
     const h = harness();
     const provider = new ScriptedProvider();
@@ -328,9 +365,14 @@ describe('AssistantService', () => {
   it('trocar a personalidade no meio da conversa vale para a próxima requisição', async () => {
     const h = harness();
     const provider = new ScriptedProvider();
+    provider.next = async function* () {
+      await Promise.resolve();
+      yield { type: 'text-delta', text: 'ok' };
+      yield { type: 'done' };
+    };
     h.setProvider(provider);
     h.service.send('primeira', REQUESTER);
-    await vi.advanceTimersByTimeAsync(10);
+    await vi.advanceTimersByTimeAsync(100);
     h.setPersonality('witty');
     h.service.send('segunda', REQUESTER);
     await vi.advanceTimersByTimeAsync(10);
@@ -340,7 +382,11 @@ describe('AssistantService', () => {
     expect(provider.requests[1]?.hints.personality).toBe('witty');
     expect(provider.requests[1]?.temperature).toBe(PERSONALITIES.witty.temperaturePreference);
     // O histórico continua o mesmo.
-    expect(provider.requests[1]?.messages.map((m) => m.content)).toEqual(['primeira', 'segunda']);
+    expect(provider.requests[1]?.messages.map((m) => m.content)).toEqual([
+      'primeira',
+      'ok',
+      'segunda'
+    ]);
   });
 
   it('nova conversa cancela a resposta em andamento e começa do zero', async () => {

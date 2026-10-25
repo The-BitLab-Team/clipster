@@ -36,11 +36,16 @@ export function newSupportCode(): string {
 }
 
 /** Informação de erro que vai para o balão: só código, espera e código de suporte. */
-export function toErrorInfo(error: ClipsterError, supportCode: string): ChatErrorInfo {
+export function toErrorInfo(
+  error: ClipsterError,
+  supportCode: string,
+  consoleUrl?: string
+): ChatErrorInfo {
   const code: DisplayedErrorCode = error.code === 'CANCELLED' ? 'UNKNOWN' : error.code;
   const info: ChatErrorInfo = { code, supportCode };
   if (code === 'RATE_LIMITED' && error.retryAfterSeconds !== undefined) {
     info.retryAfterSeconds = error.retryAfterSeconds;
   }
+  if (code === 'QUOTA_OR_BILLING' && consoleUrl !== undefined) info.consoleUrl = consoleUrl;
   return info;
 }

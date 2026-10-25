@@ -6,6 +6,8 @@ import {
   useSyncExternalStore,
   type CSSProperties
 } from 'react';
+import type { ChatErrorInfo } from '../../shared/ai/conversation';
+import type { AiStatus } from '../../shared/ai/providers';
 import type { ErrorAction } from '../../shared/errors/codes';
 import { errorMessage } from '../../shared/errors/messages';
 import {
@@ -85,6 +87,7 @@ export function BalloonApp() {
     tailX: BALLOON_SIZE.width - 44
   });
   const [sendError, setSendError] = useState<string | null>(null);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const onboardingPrimaryRef = useRef<HTMLButtonElement>(null);
@@ -136,6 +139,19 @@ export function BalloonApp() {
   }, []);
 
   useEffect(() => window.clipster.balloon.onPlacement(setPlacement), []);
+
+  // Se a IA escolhida está pronta (chave e modelo) e, se não, o que falta.
+  useEffect(() => {
+    let alive = true;
+    const unsubscribe = window.clipster.ai.onStatus(setAiStatus);
+    void window.clipster.ai.status().then((result) => {
+      if (alive && result.ok) setAiStatus(result.data);
+    });
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, []);
 
   // Aberto pelo usuário: foco no campo (ou no botão principal do onboarding).
   // Acordado com um clique: o personagem comenta.
@@ -202,7 +218,7 @@ export function BalloonApp() {
       else inputRef.current?.focus();
     });
   };
-  const onErrorAction = (action: ErrorAction): void => {
+  const onErrorAction = (action: ErrorAction, error: ChatErrorInfo): void => {
     switch (action) {
       case 'retry':
         void window.clipster.chat.retry();
@@ -212,6 +228,10 @@ export function BalloonApp() {
         return;
       case 'useDemo':
         save({ ai: { provider: 'demo' } });
+        return;
+      case 'openConsole':
+        if (error.consoleUrl !== undefined)
+          void window.clipster.shell.openExternal(error.consoleUrl);
         return;
       case 'configureAi':
       case 'openSettings':
@@ -284,7 +304,8 @@ export function BalloonApp() {
   );
 
   const style = { '--tail-x': `${placement.tailX.toString()}px` } as CSSProperties; // variável CSS
-  const hasProvider = provider === 'demo';
+  const aiReady = aiStatus?.provider === provider ? aiStatus.ready : provider === 'demo';
+  const issue = aiStatus?.provider === provider ? (aiStatus.issue ?? 'noProvider') : 'noProvider';
 
   return (
     <div
@@ -336,7 +357,7 @@ export function BalloonApp() {
                 {sendError}
               </p>
             )}
-            {hasProvider ? (
+            {aiReady ? (
               <Composer
                 t={t}
                 inputRef={inputRef}
@@ -347,6 +368,7 @@ export function BalloonApp() {
             ) : (
               <NoProvider
                 t={t}
+                issue={issue}
                 onConfigure={() => {
                   void window.clipster.windows.openSettings('ai');
                 }}

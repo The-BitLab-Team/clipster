@@ -370,9 +370,9 @@ Janela própria com **moldura nativa** (mais simples e acessível), barra latera
 | | Atalho global para chamar o Clipster | Desligado | `Ctrl+Shift+Espaço` (`⌘+Shift+Espaço` no macOS), fixo no MVP. Mostrar erro se o atalho já estiver em uso. |
 | | Dormir após inatividade | 10 min | 5 / 10 / 30 min / nunca |
 | **IA** | Provider | Nenhum | `none` / `demo` / `openai-compatible` / `anthropic` |
-| | Endereço do servidor (compatível com OpenAI) | `http://localhost:11434/v1` | Padrão do Ollama. Aceita somente `http(s)`. |
-| | Chave de API | — | Campo somente escrita; mostra só "•••• 1234" (§21). |
-| | Modelo | — | Lista obtida do provider + campo manual. Nunca um nome fixo no código. |
+| | Endereço do servidor (compatível com OpenAI) | `http://localhost:11434/v1` | Padrão do Ollama. Aceita somente `http(s)`. Atalhos: Ollama, LM Studio (`http://localhost:1234/v1`), OpenAI (`https://api.openai.com/v1`). |
+| | Chave de API | — | Campo somente escrita; mostra só "•••• 1234" (§21). Uma por provider; a do compatível com OpenAI vale só para o endereço em que foi salva. Obrigatória no Claude e em `api.openai.com`. |
+| | Modelo | — | Lista obtida do provider + campo manual. Nunca um nome fixo no código. Um por provider (`ai.openaiCompatible.model`, `ai.anthropic.model`; `settings.json` v2). |
 | | Status da conexão | — | Não configurado / Conectado / Erro (com motivo) + botão "Testar conexão". |
 | **Personalidade** | Prestativo / Espirituoso | Prestativo | Com descrição e fala de exemplo. |
 | **Aparência** | Tamanho do personagem | 100% | 75–150% |
@@ -626,7 +626,7 @@ interface ConversationMessage {
   content: string;
   createdAt: string;            // ISO 8601
   status: 'streaming' | 'complete' | 'interrupted' | 'error';
-  error?: { code: ClipsterErrorCode; retryAfterSeconds?: number; supportCode?: string };
+  error?: { code: ClipsterErrorCode; retryAfterSeconds?: number; supportCode?: string; consoleUrl?: string };
 }
 
 interface ChatRequest {
@@ -642,6 +642,7 @@ interface ChatRequest {
 
 type ChatStreamEvent =
   | { type: 'text-delta'; text: string }
+  | { type: 'thinking' }          // raciocínio do modelo: há atividade, nada é exibido
   | { type: 'tool-call'; call: ToolCall }
   | { type: 'done'; stopReason?: string; usage?: { inputTokens?: number; outputTokens?: number } }
   | { type: 'error'; error: ClipsterError };
@@ -656,6 +657,8 @@ interface ProviderCapabilities {
 interface AIProvider {
   readonly id: 'demo' | 'anthropic' | 'openai-compatible';
   readonly capabilities: ProviderCapabilities;
+  readonly timeouts?: { firstTokenMs: number; totalMs: number }; // ex.: servidor local
+  readonly consoleUrl?: string;   // painel da conta, para QUOTA_OR_BILLING
   streamResponse(request: ChatRequest): AsyncIterable<ChatStreamEvent>;
   generateResponse(request: ChatRequest): Promise<ChatResponse>; // conveniência: consome o stream
   listModels(signal: AbortSignal): Promise<ModelInfo[]>;
@@ -700,6 +703,7 @@ Ambos rodam **somente no main**, com timeouts e cancelamento.
 - Lista modelos via `GET /models`.
 - Chave opcional (servidores locais não exigem).
 - Aceitar somente `http(s)`. Avisar se uma chave for enviada por `http://` para um host que não seja `localhost`.
+- *Implementado (v0.4.0):* Chat Completions com SSE via `fetch` no main. Em `api.openai.com`: `max_completion_tokens` e sem `temperature`; outro servidor que recuse um desses parâmetros com 400 recebe o pedido de novo, uma vez, sem ele. `reasoning`/`reasoning_content` → evento `thinking`. Adaptador da Responses API adiado (ver `docs/decisions.md`).
 
 **`anthropic`**: SDK oficial `@anthropic-ai/sdk`.
 
@@ -709,13 +713,14 @@ Ambos rodam **somente no main**, com timeouts e cancelamento.
 - O SDK repete automaticamente algumas falhas (2 tentativas por padrão). Para chat interativo, usar `maxRetries: 1` e respeitar o cancelamento do usuário.
 - **Nunca** usar `dangerouslyAllowBrowser`: o SDK não roda no renderer.
 - Referências: https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript e https://platform.claude.com/docs/en/api/errors.
+- *Implementado (v0.4.0):* SDK 1.x, API `2026-10-21`, que recusa `temperature`/`top_p`/`top_k` com 400: o Claude não recebe parâmetros de amostragem (o tom vem só das instruções). Modelos `retired` ficam fora da lista; `deprecated` aparecem marcados. 402/`billing_error` → `QUOTA_OR_BILLING`; 504/`timeout_error` → `TIMEOUT`.
 
 ### 20.5 Streaming via IPC
 
 - `chat:send` retorna `requestId`. O main emite `chat:event` **somente** para o `webContents` que pediu.
 - Agrupar deltas em intervalos de ~30–50 ms para não inundar o IPC.
 - `chat:cancel(requestId)` aciona o `AbortController` correspondente. Um `AbortController` por requisição, descartado ao fim.
-- Timeouts: **30 s** até o primeiro token (→ `TIMEOUT`); **120 s** no total. Valores são constantes configuráveis.
+- Timeouts: **30 s** até o primeiro token (→ `TIMEOUT`); **120 s** no total. Valores são constantes configuráveis. Servidores locais (`localhost`, `127.x`, `::1`): **90 s** e **5 min**, porque a primeira pergunta carrega o modelo na memória. O evento `thinking` conta como atividade para o primeiro token.
 
 ---
 
@@ -727,6 +732,7 @@ Ambos rodam **somente no main**, com timeouts e cancelamento.
 - Fluxo **somente escrita**: o renderer envia a chave uma vez (`secrets:set`). O main cifra, grava em `secrets.json` e devolve apenas `{ hasKey: true, hint: '••••1234' }`. A chave **nunca** volta ao renderer.
 - Nunca colocar chaves no código, no renderer, em `settings.json`, em logs ou em mensagens de erro.
 - Desenvolvimento: o main PODE ler `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` de `.env` **apenas em builds de dev**. Fornecer `.env.example` sem valores; `.env` no `.gitignore`.
+- *Implementado (v0.4.0):* `secrets.json` guarda, por provider, a chave cifrada (base64), a dica e, no compatível com OpenAI, a origem do servidor: a chave só é enviada para essa origem. Sem cofre de verdade, `secrets:set` exige `allowInsecure: true` (caixa "Entendo o risco" na tela); sem ela responde `INSECURE_STORAGE`. No `.env`, `OPENAI_API_KEY` só vale para `https://api.openai.com`, e uma chave salva pela tela tem prioridade.
 
 ---
 
@@ -995,7 +1001,7 @@ Cada fase só termina quando seus critérios de saída passam.
 
 **MVP técnico** = Fases 0–3 + entrega da Fase 6 (empacotamento, docs, QA). **Primeiro release público** = MVP técnico + Fase 4 + decisões D1–D7.
 
-**Status em 24/10/2026:** Fases 0, 1, 2 e 3 concluídas (versão 0.3.0). Próxima: Fase 4.
+**Status em 24/10/2026:** Fases 0 a 4 concluídas (versão 0.4.0). Da Fase 4, "erros simulados mostram mensagens corretas" foi verificado com servidores simulados que seguem os protocolos da OpenAI e da Anthropic; a conversa com um provider local e um na nuvem de verdade depende da verificação manual do dono do produto (`docs/qa-checklist.md`). Próxima: Fase 5.
 
 ---
 
@@ -1143,9 +1149,9 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `settings:get` | invoke | — → `Settings` (sem segredos) |
 | `settings:update` | invoke | `SettingsPatch` → `Settings` |
 | `settings:changed` | event | `Settings` |
-| `secrets:set` | invoke | `{ provider, value }` → `{ hasKey, hint }` |
-| `secrets:clear` | invoke | `{ provider }` → `{ hasKey: false }` |
-| `secrets:status` | invoke | `{ provider }` → `{ hasKey, hint, secureBackend: boolean }` |
+| `secrets:set` | invoke | `{ provider, value, allowInsecure? }` → `KeyStatus` (só Configurações; erro `INSECURE_STORAGE` sem cofre e sem `allowInsecure`) |
+| `secrets:clear` | invoke | `{ provider }` → `KeyStatus` com `hasKey: false` |
+| `secrets:status` | invoke | `{ provider }` → `KeyStatus` = `{ hasKey, hint, secureBackend, originMismatch, savedFor, source }` |
 | `chat:send` | invoke | `{ text }` → `{ requestId }` |
 | `chat:cancel` | invoke | `{ requestId }` → `{ cancelled: boolean }` |
 | `chat:retry` | invoke | — → `{ requestId }` (refaz a última pergunta, sem duplicá-la) |
@@ -1154,8 +1160,10 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `chat:conversation:new` | invoke | — → mesma forma de `chat:conversation:get` |
 | `chat:history:clear` | invoke | `{ confirmed: true }` → `{ cleared: boolean }` (só a janela de Configurações) |
 | `chat:typing` | send | `{ typing: boolean }` (alimenta `listening`) |
-| `ai:models:list` | invoke | `{ provider }` → `ModelInfo[]` (Fase 4) |
-| `ai:connection:test` | invoke | `{ provider }` → `ConnectionStatus` (Fase 4) |
+| `ai:models:list` | invoke | `{ provider }` → `{ status: 'ok', models: { id, name, deprecated? }[] }` ou `{ status: 'error', code }` (só Configurações) |
+| `ai:connection:test` | invoke | `{ provider }` → `{ status: 'connected', modelCount }` ou `{ status: 'error', code }`; `code` inclui `NOT_COMPATIBLE` e `MISSING_KEY` (só Configurações) |
+| `ai:status:get` | invoke | — → `{ provider, ready, issue: 'noProvider' \| 'missingModel' \| 'missingKey' \| null }` (balão e Configurações) |
+| `ai:status` | event | mesma forma de `ai:status:get`, quando muda |
 | `character:view` | event | `{ state, badge }` (pose decidida pela máquina de estados) |
 | `character:getView` | invoke | — → `{ state, badge }` (consulta ao abrir a janela) |
 | `character:click` | send | — |

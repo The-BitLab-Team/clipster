@@ -213,7 +213,7 @@ describe('DemoProvider', () => {
     const response = await provider.generateResponse(request('Quem é você?'));
     expect(response.text).toContain('Clipster');
     expect(await provider.listModels()).toEqual([{ id: 'demo', name: 'Demo' }]);
-    expect(await provider.testConnection()).toEqual({ status: 'connected' });
+    expect(await provider.testConnection()).toEqual({ status: 'connected', modelCount: 1 });
   });
 });
 

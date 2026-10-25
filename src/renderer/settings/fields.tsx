@@ -60,6 +60,8 @@ interface SelectFieldProps<T extends string> {
   value: T;
   options: readonly Option<T>[];
   onChange: (value: T) => void;
+  /** `column`: rótulo em cima e lista na largura toda (opções com texto longo). */
+  layout?: 'row' | 'column';
 }
 
 export function SelectField<T extends string>({
@@ -68,11 +70,12 @@ export function SelectField<T extends string>({
   hint,
   value,
   options,
-  onChange
+  onChange,
+  layout = 'row'
 }: SelectFieldProps<T>) {
   const hintId = hint === undefined ? undefined : `${id}-hint`;
   return (
-    <div className="field field--row">
+    <div className={layout === 'row' ? 'field field--row' : 'field field--column'}>
       <div className="field__text">
         <label htmlFor={id} className="field__label">
           {label}

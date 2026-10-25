@@ -1,6 +1,6 @@
 # Arquitetura
 
-Visão do código como está na versão 0.3.0 (Fases 0 a 3). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
+Visão do código como está na versão 0.4.0 (Fases 0 a 4). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
 
 ## Processos
 
@@ -10,7 +10,9 @@ Visão do código como está na versão 0.3.0 (Fases 0 a 3). A especificação c
 │ AppController ─ comandos (menus, IPC, atalho, testes) → efeitos; reage a mudanças de config│
 │   ├─ CharacterWindow + CharacterStateHost (máquina de estados, 2 timers)                   │
 │   ├─ BalloonWindow (pré-criada, segue o personagem, altura dinâmica)                       │
-│   ├─ AssistantService ─ ContextBuilder ─ PersonalityManager ─ AIProvider (Demo)            │
+│   ├─ AssistantService ─ ContextBuilder ─ PersonalityManager ─ ProviderRegistry             │
+│   │     └─ AIProvider: Demo · compatível com OpenAI (fetch + SSE) · Anthropic (SDK)       │
+│   ├─ SecretStore (chaves cifradas com safeStorage em secrets.json)                         │
 │   ├─ HistoryStore (só com "Salvar histórico")                                              │
 │   ├─ SettingsWindowManager (sob demanda)                                                   │
 │   ├─ TrayController + menuFactory (bandeja e menu de contexto vêm da mesma fábrica)        │
@@ -30,19 +32,19 @@ Visão do código como está na versão 0.3.0 (Fases 0 a 3). A especificação c
 |-------|----------|
 | `src/main/app` | `controller.ts` (orquestração), `protocol.ts`/`protocolPath.ts` (`app://`), `loginItem.ts`, `pages.ts`, `applicationMenu.ts`, `testHooks.ts` |
 | `src/main/character` | `characterStateHost.ts`: roda a máquina de estados com os timers |
-| `src/main/ai` | `assistantService.ts` (conversa, requisição única, tempos-limite, agrupamento de pedaços), `contextBuilder.ts`, `personalityManager.ts`, `errors.ts`, `types.ts` (`AIProvider`), `providers/demo/` (repertório, simulações) |
+| `src/main/ai` | `assistantService.ts` (conversa, requisição única, tempos-limite, agrupamento de pedaços), `contextBuilder.ts`, `personalityManager.ts`, `errors.ts`, `types.ts` (`AIProvider`), `providerRegistry.ts` (escolhe o provider, prontidão, chaves, modelos, testar conexão), `providers/openaiCompatible.ts`, `providers/anthropic.ts`, `providers/shared.ts` (SSE, erros HTTP → §23), `providers/demo/` (repertório, simulações) |
 | `src/main/windows` | `characterWindow.ts`, `balloonWindow.ts`, `settingsWindow.ts`, `placement.ts` e `balloonPlacement.ts` (funções puras de posição), `displays.ts`, `webPreferences.ts` |
 | `src/main/menus` | `menuFactory.ts` (descrição pura dos menus) e `electronMenu.ts` (conversão) |
 | `src/main/ipc` | `registry.ts` (validação central) e `handlers.ts` (canais do Apêndice C) |
-| `src/main/storage` | `settingsStore.ts`, `settingsRecovery.ts` (leitura tolerante e migrações), `historyStore.ts`, `atomicWrite.ts` |
+| `src/main/storage` | `settingsStore.ts`, `settingsRecovery.ts` (leitura tolerante e migrações), `historyStore.ts`, `secretStore.ts` (chaves de API), `atomicWrite.ts` |
 | `src/main/security` | `csp.ts`, `hardening.ts`, `urls.ts` |
 | `src/main/logging` | `logger.ts` (JSON Lines, rotação) e `redact.ts` |
 | `src/preload` | `api.ts` (constrói `window.clipster`) e `index.ts` |
 | `src/renderer/character` | Página do personagem: `controller.ts` (interface), `svgRigController.ts` (adaptador do formato svg-rig), `packs/` (pacote de arte em uso) |
 | `src/renderer/balloon` | Balão (React): `BalloonApp`, `Header` (visor), `Conversation`, `Composer`, `Onboarding`, `Markdown` (seguro), `chatState.ts` (estado puro, testado) e `chatClient.ts` |
-| `src/renderer/settings` | Página de Configurações (React) |
+| `src/renderer/settings` | Página de Configurações (React); `AiSection.tsx` (provider, servidor, chave, modelo, testar conexão) |
 | `src/renderer/lib` | `settingsClient.ts` (configurações espelhadas do main), `errorReporting.ts` |
-| `src/shared` | Esquemas Zod, i18n, canais e tipos de IPC, constantes, utilitários puros; `character/` (estados e máquina de estados), `ai/` (tipos da conversa), `personalities/` (prompts e falas), `errors/` (códigos e textos de erro) |
+| `src/shared` | Esquemas Zod, i18n, canais e tipos de IPC, constantes, utilitários puros; `character/` (estados e máquina de estados), `ai/` (tipos da conversa, endereços e prontidão dos providers), `personalities/` (prompts e falas), `errors/` (códigos e textos de erro) |
 | `assets/` | SVGs originais. `assets/character/<pacote>/`: `manifest.json`, rig SVG e `poses.css` |
 | `resources/` | PNGs usados em tempo de execução (bandeja, ícone da janela) |
 | `build/` | Ícone usado pelo electron-builder |
@@ -54,7 +56,7 @@ Visão do código como está na versão 0.3.0 (Fases 0 a 3). A especificação c
 1. Define a pasta de dados (`Clipster (dev)` em desenvolvimento, temporária em E2E).
 2. Registra o protocolo `app://` como privilegiado e desliga o corretor ortográfico no `session-created` (evita download de dicionários).
 3. Pede o lock de instância única. Se outra instância existe, ela é mostrada e esta sai.
-4. No `ready`: logger, endurecimento da sessão, handler do `app://`, `SettingsStore.load()`.
+4. No `ready`: logger, endurecimento da sessão, handler do `app://`, `SettingsStore.load()`, `SecretStore.load()` (o `safeStorage` só funciona depois do `ready`; em desenvolvimento, o `.env` entra como reserva).
 5. `AppController.start()`: IPC, janela do personagem (`showInactive`, sem roubar foco), bandeja.
 
 ### Arrasto
@@ -87,11 +89,14 @@ Balão: Enter → chat:send { text }                (só a janela de papel "ball
       → valida (vazio, 4.000 caracteres, uma por vez, provider configurado)
       → guarda a pergunta + resposta vazia ("streaming") → chat:event start → MESSAGE_SENT
       → ContextBuilder: base + personalidade + idioma + ambiente + histórico (20 msgs / 12k chars)
-      → AIProvider.streamResponse (Demo: repertório por palavra-chave, idioma, sistema, tom)
+      → ProviderRegistry: provider do momento + modelo + chave (decifrada só aqui, no main)
+      → AIProvider.streamResponse (Demo; compatível com OpenAI: POST /chat/completions com SSE;
+        Anthropic: messages.create com stream) → erros HTTP/SDK viram os códigos da §23
+      → "thinking" (raciocínio) zera o cronômetro do 1º pedaço, sem mostrar nada
       → pedaços agrupados a cada 40 ms → chat:event delta   (1º pedaço → FIRST_TOKEN)
       → fim → chat:event done → STREAM_DONE → histórico (se ligado)
   Parar → chat:cancel → AbortController → "interrompida" → CANCELLED
-  30 s sem 1º pedaço ou 120 s no total → TIMEOUT → chat:event error → AI_ERROR
+  30 s sem 1º pedaço ou 120 s no total (servidor local: 90 s / 5 min) → TIMEOUT → AI_ERROR
 ```
 
 O balão nunca recebe texto de erro do main, só o código (`ChatErrorInfo`); a frase sai do i18n, no tom da personalidade quando a §23 permite.
@@ -107,6 +112,16 @@ O balão nunca recebe texto de erro do main, só o código (`ChatErrorInfo`); a 
 ### Mudança de configuração
 
 `settings:update` (só janelas de UI) → `SettingsStore.update` valida e grava (debounce, escrita atômica) → `onChange` → `AppController` aplica efeitos (sempre visível, escala, login item, menus) e transmite `settings:changed` às janelas. Mudanças só de posição não são transmitidas.
+
+### Chave de API (SPEC §21)
+
+```
+Configurações: "Salvar chave" → secrets:set { provider, value, allowInsecure? }   (só a janela de Configurações)
+  → SecretStore: valida, cifra com safeStorage, grava secrets.json (com a origem, no compatível com OpenAI)
+  → responde só { hasKey, hint: "1234", secureBackend, … }; a chave nunca volta
+  → ai:status para balão e Configurações (o balão troca "Falta a chave" pelo campo de texto)
+Sem cofre (Linux basic_text): sem allowInsecure → INSECURE_STORAGE; a tela pede "Entendo o risco".
+```
 
 ### Monitores
 
@@ -134,6 +149,9 @@ Canais em `src/shared/ipc/channels.ts`, payloads em `payloads.ts` e `schemas/con
 | `clipboard:writeText` | invoke | balão |
 | `windows:settings:open`, `windows:hideClipster`, `app:info`, `app:quit` | invoke | todas |
 | `shell:openExternal` | invoke | configurações e balão |
+| `secrets:set`, `secrets:clear`, `secrets:status`, `ai:models:list`, `ai:connection:test` | invoke | configurações |
+| `ai:status:get` | invoke | configurações e balão |
+| `ai:status` | evento main → balão e configurações | — |
 | `diagnostics:openLogs` | invoke | configurações |
 | `log:write` | send | todas |
 | `settings:changed`, `windows:settings:navigate` | evento main → renderer | — |

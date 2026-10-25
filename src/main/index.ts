@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, session } from 'electron';
+import { app, safeStorage, session } from 'electron';
 import trayIconPath from '../../resources/tray/tray.png?asset&asarUnpack';
 import trayTemplateIconPath from '../../resources/tray/trayTemplate.png?asset&asarUnpack';
 import appIconPath from '../../resources/icon.png?asset&asarUnpack';
@@ -15,6 +15,8 @@ import {
   hardenSession,
   hardenWebContents
 } from './security/hardening';
+import { readDotEnv } from './app/devEnv';
+import { SecretStore, type SecretProvider } from './storage/secretStore';
 import { SettingsStore } from './storage/settingsStore';
 
 /**
@@ -40,6 +42,29 @@ function e2eDemoTiming(): { thinkingMs: number; chunkMs: number } {
   const value = Number(process.env.CLIPSTER_E2E_DEMO_DELAY_MS ?? '0');
   const chunkMs = Number.isInteger(value) && value >= 0 ? value : 0;
   return { thinkingMs: chunkMs * 10, chunkMs };
+}
+
+/** Só em E2E: tempos-limite curtos da IA ("primeiroToken,total", em ms). */
+function e2eAiTimeouts(): { firstTokenMs: number; totalMs: number } | null {
+  const [first, total] = (process.env.CLIPSTER_E2E_AI_TIMEOUTS ?? '').split(',').map(Number);
+  if (first === undefined || total === undefined) return null;
+  return Number.isInteger(first) && Number.isInteger(total) && first > 0 && total > 0
+    ? { firstTokenMs: first, totalMs: total }
+    : null;
+}
+
+/** Só em desenvolvimento (SPEC §21): chaves do `.env` na raiz do projeto, como reserva. */
+function devEnvKeys(): Partial<Record<SecretProvider, string>> {
+  if (app.isPackaged || isE2E) return {};
+  const env = readDotEnv(join(app.getAppPath(), '.env'));
+  const keys: Partial<Record<SecretProvider, string>> = {};
+  if (env.ANTHROPIC_API_KEY !== undefined && env.ANTHROPIC_API_KEY !== '') {
+    keys.anthropic = env.ANTHROPIC_API_KEY;
+  }
+  if (env.OPENAI_API_KEY !== undefined && env.OPENAI_API_KEY !== '') {
+    keys['openai-compatible'] = env.OPENAI_API_KEY;
+  }
+  return keys;
 }
 
 /** Só em E2E: tempo curto para testar o sono por inatividade. */
@@ -87,6 +112,16 @@ async function main(): Promise<void> {
     logger: logger.child('settings')
   });
 
+  // safeStorage só funciona depois do `ready` (SPEC §21).
+  const secrets = SecretStore.load({
+    filePath: join(userData, 'secrets.json'),
+    safeStorage,
+    platform: process.platform,
+    logger: logger.child('secrets'),
+    envKeys: devEnvKeys(),
+    envOpenAiOrigin: 'https://api.openai.com'
+  });
+
   const controller = new AppController({
     store,
     logger,
@@ -110,7 +145,10 @@ async function main(): Promise<void> {
     devTools: !app.isPackaged,
     allowSimulations: !app.isPackaged || isE2E,
     sleepAfterMsOverride: isE2E ? e2eSleepAfterMs() : null,
-    demoTiming: isE2E ? e2eDemoTiming() : null
+    demoTiming: isE2E ? e2eDemoTiming() : null,
+    secrets,
+    anthropicBaseUrl: isE2E ? (process.env.CLIPSTER_E2E_ANTHROPIC_BASE_URL ?? null) : null,
+    aiTimeoutsOverride: isE2E ? e2eAiTimeouts() : null
   });
 
   app.on('second-instance', () => {

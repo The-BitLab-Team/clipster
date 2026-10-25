@@ -63,6 +63,8 @@ export interface AssistantServiceOptions {
   logger: Logger;
   initialConversation?: StoredConversation | null;
   timeouts?: AiTimeouts;
+  /** Só em testes: vale mais que os tempos-limite próprios do provider. */
+  forceTimeouts?: AiTimeouts | null;
   deltaFlushMs?: number;
   newId?: () => string;
   now?: () => Date;
@@ -72,6 +74,7 @@ interface ActiveRequest {
   requestId: string;
   requester: number;
   providerId: AIProvider['id'];
+  consoleUrl: string | undefined;
   controller: AbortController;
   message: ConversationMessage;
   pending: string;
@@ -79,6 +82,8 @@ interface ActiveRequest {
   firstTokenTimer: ReturnType<typeof setTimeout> | null;
   totalTimer: ReturnType<typeof setTimeout> | null;
   gotFirstToken: boolean;
+  /** O provider deu sinal de vida (ex.: modelo pensando) antes do primeiro texto. */
+  gotActivity: boolean;
   finished: boolean;
   startedAt: number;
 }
@@ -230,6 +235,7 @@ export class AssistantService {
       requestId,
       requester,
       providerId: provider.id,
+      consoleUrl: provider.consoleUrl,
       controller: new AbortController(),
       message: reply,
       pending: '',
@@ -237,6 +243,7 @@ export class AssistantService {
       firstTokenTimer: null,
       totalTimer: null,
       gotFirstToken: false,
+      gotActivity: false,
       finished: false,
       startedAt: Date.now()
     };
@@ -272,12 +279,13 @@ export class AssistantService {
         : { temperature: personality.temperaturePreference })
     };
 
+    const timeouts = this.options.forceTimeouts ?? provider.timeouts ?? this.timeouts;
     active.firstTokenTimer = setTimeout(() => {
       this.timeOut(active, 'first_token');
-    }, this.timeouts.firstTokenMs);
+    }, timeouts.firstTokenMs);
     active.totalTimer = setTimeout(() => {
       this.timeOut(active, 'total');
-    }, this.timeouts.totalMs);
+    }, timeouts.totalMs);
 
     this.options.logger.info('ai.request', {
       requestId,
@@ -303,6 +311,11 @@ export class AssistantService {
         if (active.finished) return;
         if (event.type === 'text-delta') {
           this.onDelta(active, event.text);
+        } else if (event.type === 'thinking') {
+          if (!active.gotActivity) {
+            active.gotActivity = true;
+            this.clearTimer(active, 'firstTokenTimer');
+          }
         } else if (event.type === 'error') {
           this.fail(active, event.error);
           return;
@@ -352,7 +365,7 @@ export class AssistantService {
 
   private timeOut(active: ActiveRequest, which: 'first_token' | 'total'): void {
     if (active.finished) return;
-    if (which === 'first_token' && active.gotFirstToken) return;
+    if (which === 'first_token' && (active.gotFirstToken || active.gotActivity)) return;
     active.controller.abort();
     this.fail(active, new ClipsterError('TIMEOUT', `Tempo-limite: ${which}`));
   }
@@ -372,7 +385,7 @@ export class AssistantService {
       detail: error.message,
       durationMs: Date.now() - active.startedAt
     });
-    this.settle(active, 'error', toErrorInfo(error, supportCode));
+    this.settle(active, 'error', toErrorInfo(error, supportCode, active.consoleUrl));
   }
 
   private settle(

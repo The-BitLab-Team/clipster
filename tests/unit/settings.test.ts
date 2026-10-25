@@ -14,7 +14,8 @@ describe('esquema de configurações', () => {
     expect(DEFAULT_SETTINGS.general.launchAtLogin).toBe(false);
     expect(DEFAULT_SETTINGS.privacy.saveHistory).toBe(false);
     expect(DEFAULT_SETTINGS.ai.provider).toBe('none');
-    expect(DEFAULT_SETTINGS.ai.model).toBe('');
+    expect(DEFAULT_SETTINGS.ai.openaiCompatible.model).toBe('');
+    expect(DEFAULT_SETTINGS.ai.anthropic.model).toBe('');
   });
 
   it('o patch rejeita campos desconhecidos e campos gerenciados pelo main', () => {
@@ -38,9 +39,11 @@ describe('esquema de configurações', () => {
       false
     );
     expect(SettingsPatchSchema.safeParse({ personality: 'grumpy' }).success).toBe(false);
-    expect(SettingsPatchSchema.safeParse({ ai: { baseUrl: 'file:///etc/passwd' } }).success).toBe(
-      false
-    );
+    expect(
+      SettingsPatchSchema.safeParse({
+        ai: { openaiCompatible: { baseUrl: 'file:///etc/passwd', model: '' } }
+      }).success
+    ).toBe(false);
   });
 
   it('applySettingsPatch mescla por seção sem perder os outros campos', () => {
@@ -138,10 +141,56 @@ describe('leitura tolerante (parseStoredSettings)', () => {
     expect(parseStoredSettings(undefined)).toEqual({ settings: DEFAULT_SETTINGS, issues: [] });
   });
 
-  it('migrateSettings trata arquivo sem versão como v1', () => {
+  it('migrateSettings trata arquivo sem versão como v1 e leva à versão atual', () => {
     expect(migrateSettings({ personality: 'witty' })).toEqual({
       personality: 'witty',
-      schemaVersion: 1
+      schemaVersion: 2,
+      ai: {
+        openaiCompatible: { baseUrl: 'http://localhost:11434/v1', model: '' },
+        anthropic: { model: '' }
+      }
     });
+  });
+
+  it('v1 → v2: endereço e modelo passam para o provedor compatível com OpenAI', () => {
+    const v1 = {
+      schemaVersion: 1,
+      personality: 'witty',
+      ai: { provider: 'openai-compatible', baseUrl: 'http://localhost:1234/v1', model: 'qwen' }
+    };
+    const { settings, issues } = parseStoredSettings(v1);
+    expect(issues).toEqual([]);
+    expect(settings.schemaVersion).toBe(2);
+    expect(settings.ai).toEqual({
+      provider: 'openai-compatible',
+      openaiCompatible: { baseUrl: 'http://localhost:1234/v1', model: 'qwen' },
+      anthropic: { model: '' }
+    });
+    expect(settings.personality).toBe('witty');
+  });
+
+  it('sem versão mas já no formato novo: as seções existentes são mantidas', () => {
+    const { settings } = parseStoredSettings({
+      ai: {
+        provider: 'anthropic',
+        openaiCompatible: { baseUrl: 'http://localhost:1234/v1', model: 'qwen' },
+        anthropic: { model: 'claude-x' }
+      }
+    });
+    expect(settings.ai).toEqual({
+      provider: 'anthropic',
+      openaiCompatible: { baseUrl: 'http://localhost:1234/v1', model: 'qwen' },
+      anthropic: { model: 'claude-x' }
+    });
+  });
+
+  it('v1 com endereço inválido: só esse campo volta ao padrão', () => {
+    const { settings, issues } = parseStoredSettings({
+      schemaVersion: 1,
+      ai: { provider: 'openai-compatible', baseUrl: 'ftp://x', model: 'm' }
+    });
+    expect(issues).toEqual(['ai.openaiCompatible']);
+    expect(settings.ai.provider).toBe('openai-compatible');
+    expect(settings.ai.openaiCompatible.baseUrl).toBe('http://localhost:11434/v1');
   });
 });

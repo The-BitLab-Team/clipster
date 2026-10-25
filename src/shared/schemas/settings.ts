@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { SETTINGS_SECTIONS } from '../constants/sections';
 import { CHARACTER_SCALE } from '../constants/ui';
 import { CHAT_SCALE } from '../ui/balloon';
+import { isHttpUrl } from '../ai/urls';
 
 /**
  * Esquema das configurações (SPEC §12 e §13).
@@ -11,7 +12,8 @@ import { CHAT_SCALE } from '../ui/balloon';
  * - o esquema de patch do IPC (`z.strictObject(...).partial()`, rejeita campos desconhecidos).
  */
 
-export const SETTINGS_SCHEMA_VERSION = 1;
+/** v2: as configurações de IA passaram a ser por provedor (endereço e modelo de cada um). */
+export const SETTINGS_SCHEMA_VERSION = 2;
 
 export const LanguagePreferenceSchema = z.enum(['system', 'pt-BR', 'en']);
 export const PersonalityIdSchema = z.enum(['helpful', 'witty']);
@@ -33,17 +35,7 @@ export const HistoryRetentionDaysSchema = z.union([
 
 export const SettingsSectionSchema = z.enum(SETTINGS_SECTIONS);
 
-const httpUrl = z
-  .string()
-  .max(2048)
-  .refine((value) => {
-    try {
-      const url = new URL(value);
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }, 'Use um endereço http:// ou https://');
+const httpUrl = z.string().max(2048).refine(isHttpUrl, 'Use um endereço http:// ou https://');
 
 export const SavedPositionSchema = z.object({
   x: z.number(),
@@ -79,10 +71,22 @@ const privacyShape = {
   historyRetentionDays: HistoryRetentionDaysSchema
 };
 
+const modelId = z.string().trim().max(256);
+
+/** Servidor compatível com OpenAI: Ollama, LM Studio, a própria OpenAI etc. (SPEC §20.4). */
+export const OpenAiCompatibleSettingsSchema = z.strictObject({
+  baseUrl: httpUrl,
+  model: modelId
+});
+
+export const AnthropicSettingsSchema = z.strictObject({
+  model: modelId
+});
+
 const aiShape = {
   provider: AiProviderIdSchema,
-  baseUrl: httpUrl,
-  model: z.string().max(256)
+  openaiCompatible: OpenAiCompatibleSettingsSchema,
+  anthropic: AnthropicSettingsSchema
 };
 
 const windowShape = {
@@ -125,6 +129,8 @@ export type PersonalityId = z.infer<typeof PersonalityIdSchema>;
 export type SleepAfterMinutes = z.infer<typeof SleepAfterMinutesSchema>;
 export type HistoryRetentionDays = z.infer<typeof HistoryRetentionDaysSchema>;
 export type AnimationPreference = z.infer<typeof AnimationPreferenceSchema>;
+export type AiProviderId = z.infer<typeof AiProviderIdSchema>;
+export type AiSettings = z.infer<typeof AiSettingsSchema>;
 export type ThemePreference = z.infer<typeof ThemePreferenceSchema>;
 export type SettingsSection = z.infer<typeof SettingsSectionSchema>;
 export type SavedPosition = z.infer<typeof SavedPositionSchema>;
@@ -158,8 +164,8 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   ai: {
     provider: 'none',
-    baseUrl: 'http://localhost:11434/v1',
-    model: ''
+    openaiCompatible: { baseUrl: 'http://localhost:11434/v1', model: '' },
+    anthropic: { model: '' }
   },
   window: {
     characterPosition: null

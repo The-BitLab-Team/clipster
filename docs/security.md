@@ -1,6 +1,6 @@
 # Segurança
 
-Situação de cada item da SPEC §26 na versão 0.3.0. Base: a checklist oficial de segurança do Electron.
+Situação de cada item da SPEC §26 na versão 0.4.0. Base: a checklist oficial de segurança do Electron.
 
 | # | Item | Situação | Onde |
 |---|------|----------|------|
@@ -14,7 +14,7 @@ Situação de cada item da SPEC §26 na versão 0.3.0. Base: a checklist oficial
 | 8 | Sem `eval`/`new Function`; nada executado a partir do renderer | ✅ | ESLint: `no-eval`, `no-implied-eval`, `no-new-func` |
 | 9 | Electron Fuses no app empacotado | ✅ | `electron-builder.yml` (`electronFuses`). Verificado com `@electron/fuses read` e testando que `ELECTRON_RUN_AS_NODE` não funciona. |
 | 10 | Markdown seguro nas respostas de IA: sem HTML bruto, sem imagens, links só por clique e validados no main | ✅ | `src/renderer/balloon/Markdown.tsx` (`react-markdown` com `skipHtml`, sem `rehype-raw`, sem `dangerouslySetInnerHTML`). E2E com `/simular markdown`. |
-| 11 | Segredos com `safeStorage`; logs com redação | Logs ✅ · segredos na Fase 4 | `src/main/logging/redact.ts` |
+| 11 | Segredos com `safeStorage`; logs com redação | ✅ | `src/main/storage/secretStore.ts` (testado em `tests/unit/secretStore.test.ts` e no E2E "Claude"), `src/main/logging/redact.ts` |
 | 12 | Higiene de dependências: lockfile, `npm ci`, `npm audit` no CI, Dependabot | ✅ | `.github/workflows/ci.yml`, `.github/dependabot.yml` |
 | 13 | Assinatura de código | Pendente (D5) | — |
 | 14 | Corretor ortográfico sem download de dicionários | ✅ | `disableSpellcheckerDownloads` no evento `session-created` |
@@ -30,3 +30,8 @@ Situação de cada item da SPEC §26 na versão 0.3.0. Base: a checklist oficial
 - **Ganchos de teste.** Existem apenas com `CLIPSTER_E2E=1`, ficam em `globalThis` do main process e não são acessíveis por nenhum renderer (não há canal IPC de teste).
 - **DevTools** ficam desligadas no app empacotado.
 - **E2E e Fuses.** Os testes E2E rodam o build não empacotado. Com os Fuses, o app empacotado recusa `--inspect`, que o Playwright usa, e esse é o comportamento desejado.
+- **Chaves de API (SPEC §21).** Fluxo só de escrita: `secrets:set` (só a janela de Configurações) recebe a chave, o main cifra com `safeStorage` e grava `secrets.json`; a resposta é só `{ hasKey, hint }`. Nenhum canal devolve a chave. O E2E confere que ela não aparece na página de Configurações, em `settings.json` nem em texto puro em `secrets.json`. Sem cofre de verdade (`basic_text` no Linux), salvar exige confirmação explícita.
+- **Chave presa ao endereço.** A chave do provider compatível com OpenAI só é enviada para a origem em que foi salva; mudar o endereço para outro servidor não a leva junto. Enviar chave por `http://` para um host que não seja local gera um aviso na tela.
+- **Rede só no main.** Os providers rodam no main; o renderer continua sem rede (CSP `connect-src 'none'` em produção). O SDK da Anthropic nunca é carregado no renderer (sem `dangerouslyAllowBrowser`) e recebe `apiKey`/`baseURL` explícitos, sem ler variáveis de ambiente.
+- **`.env`** só é lido em desenvolvimento (app não empacotado e fora de E2E) e está no `.gitignore`; `.env.example` não tem valores.
+- **Painel da conta.** O link do erro de cota vem do main e o esquema só aceita os dois endereços conhecidos (`platform.claude.com`, `platform.openai.com`); o `shell:openExternal` valida de novo.

@@ -1,6 +1,6 @@
 # Clipster
 
-Um pequeno companheiro de desktop, animado, com personalidade e foco em privacidade. Ele fica num canto da tela, pode ser arrastado, e conversa com você num balão. Por enquanto as respostas vêm do modo demonstração; na próxima versão, da IA que você escolher.
+Um pequeno companheiro de desktop, animado, com personalidade e foco em privacidade. Ele fica num canto da tela, pode ser arrastado, e conversa com você num balão usando a IA que você escolher: um modelo rodando no seu computador (Ollama, LM Studio) ou na nuvem (Claude, OpenAI).
 
 > Inspirado nos assistentes de desktop dos anos 90, com identidade própria. **Não afiliado à Microsoft.**
 
@@ -10,7 +10,7 @@ Um pequeno companheiro de desktop, animado, com personalidade e foco em privacid
 
 ## Estado atual
 
-Versão **0.3.0**: Fases 0, 1, 2 e 3 do [roadmap](SPEC.md#34-roadmap) concluídas.
+Versão **0.4.0**: Fases 0 a 4 do [roadmap](SPEC.md#34-roadmap) concluídas.
 
 | Recurso | Situação |
 |---------|----------|
@@ -28,7 +28,8 @@ Versão **0.3.0**: Fases 0, 1, 2 e 3 do [roadmap](SPEC.md#34-roadmap) concluída
 | **Prestativo / Espirituoso** com troca rápida no balão | ✅ |
 | **Primeira execução guiada** (idioma, personalidade, IA) | ✅ |
 | Histórico de conversas opcional (desligado por padrão) | ✅ |
-| IA de verdade (Ollama/LM Studio, Claude, OpenAI) | Fase 4 |
+| **IA de verdade**: servidor local compatível com OpenAI (Ollama, LM Studio), Claude e OpenAI | ✅ |
+| Chave de API no cofre do sistema, lista de modelos, "Testar conexão", mensagens de erro claras | ✅ |
 | Ferramentas com permissões | Fase 5 |
 
 ## Conversando com o Clipster
@@ -91,6 +92,8 @@ npm run test:e2e    # E2E (no Linux sem desktop: xvfb-run -a npm run test:e2e)
 
 Os testes E2E rodam com `CLIPSTER_E2E=1` e uma pasta de dados temporária: nunca tocam nas suas configurações reais. Eles percorrem o cenário completo do MVP (SPEC §37) e verificam, pelo log de rede do Chromium, que o app não faz **nenhuma** requisição de rede ao abrir nem ao conversar no modo Demo.
 
+Para a IA de verdade, os testes sobem servidores locais que seguem os protocolos da OpenAI e da Anthropic (`tests/support/mockProviders.ts`) e conferem a conversa, as chaves e cada mensagem de erro. A conversa com os serviços reais faz parte do roteiro manual.
+
 Alguns comportamentos só podem ser verificados num desktop de verdade (transparência, bandeja, vários monitores). Para eles há o roteiro manual em [`docs/qa-checklist.md`](docs/qa-checklist.md).
 
 ## Empacotamento
@@ -110,7 +113,8 @@ npm run package:win   # Windows (rodar no Windows)
 - **Main process** (`src/main`): janelas, bandeja, menus, configurações, IPC, segurança. É a única fonte da verdade das configurações.
 - **Preload** (`src/preload`): expõe só `window.clipster`, uma API mínima e tipada. Nunca expõe o `ipcRenderer`.
 - **Máquina de estados** (`src/shared/character`): função pura que decide a pose do personagem; roda no main com dois timers no máximo (transitório e inatividade).
-- **Conversa** (`src/main/ai`): o `AssistantService` guarda a conversa no main, monta o contexto (`ContextBuilder`), fala com o provider pela interface `AIProvider` (hoje só o Demo) e envia os pedaços da resposta ao balão.
+- **Conversa** (`src/main/ai`): o `AssistantService` guarda a conversa no main, monta o contexto (`ContextBuilder`), fala com o provider escolhido (Demo, compatível com OpenAI ou Anthropic) pela interface `AIProvider` e envia os pedaços da resposta ao balão. Toda chamada de rede acontece no main.
+- **Chaves de API** (`src/main/storage/secretStore.ts`): cifradas com o cofre do sistema (`safeStorage`); a tela só recebe "tem chave, termina em 1234".
 - **Personalidades** (`src/shared/personalities`): único lugar com prompts e falas do personagem.
 - **Renderers** (`src/renderer`): o personagem (TypeScript puro, sem React por quadro; a arte é um pacote trocável em `assets/character/`), o balão (React, Markdown seguro) e as Configurações (React). Sem Node, sem acesso a arquivos, sem rede.
 - **Shared** (`src/shared`): esquemas Zod, i18n, contratos de IPC, constantes.
@@ -119,7 +123,27 @@ Detalhes em [`docs/architecture.md`](docs/architecture.md). Decisões registrada
 
 ## Configuração de IA
 
-Em Configurações › IA, hoje há duas opções: **Nenhuma** (o balão explica como configurar) e **Modo demonstração**. A Fase 4 acrescenta servidores locais compatíveis com OpenAI (Ollama, LM Studio) e provedores na nuvem (Claude, OpenAI), sempre com o modelo escolhido por você e a chave guardada no cofre do sistema.
+Tudo em **Configurações › IA**. O modelo é sempre você quem escolhe; o Clipster não tem nenhum fixo.
+
+**Ollama (no seu computador, grátis):**
+1. Instale o [Ollama](https://ollama.com/) e baixe um modelo, por exemplo `ollama pull llama3.2`.
+2. Em Configurações › IA, escolha **Servidor compatível com OpenAI** e clique em **Ollama** (endereço `http://localhost:11434/v1`).
+3. Escolha o modelo na lista e clique em **Testar conexão**.
+
+**LM Studio:** ligue o servidor local na aba Developer do LM Studio, carregue um modelo e use o atalho **LM Studio** (`http://localhost:1234/v1`). O resto é igual.
+
+**Claude (Anthropic):** escolha **Claude**, cole a sua chave de API (criada no Claude Console), clique em **Salvar chave** e escolha o modelo na lista, que vem da própria Anthropic.
+
+**OpenAI:** escolha **Servidor compatível com OpenAI**, clique em **OpenAI** (`https://api.openai.com/v1`), salve a chave e escolha o modelo.
+
+Sobre as chaves:
+- Ficam só no seu computador, cifradas pelo cofre do sistema (DPAPI no Windows, Keychain no macOS, keyring no Linux). A tela de Configurações nunca recebe a chave de volta, só os últimos 4 caracteres.
+- A chave de um servidor compatível com OpenAI vale só para o endereço em que foi salva: trocar o endereço não manda a chave para outro servidor.
+- No Linux sem keyring, o Electron não consegue cifrar de verdade; o Clipster avisa e só salva se você confirmar.
+
+Servidores locais costumam demorar mais para a primeira palavra (o modelo é carregado na memória), por isso o tempo-limite deles é maior: 90 s para começar e 5 min no total (nuvem: 30 s e 2 min).
+
+**Em desenvolvimento**, dá para pôr as chaves num arquivo `.env` na raiz do projeto (veja `.env.example`), em vez de salvar pela tela. O `.env` é ignorado pelo git e o app instalado nunca o lê. `OPENAI_API_KEY` só vale para `https://api.openai.com`.
 
 ## Privacidade
 
@@ -137,10 +161,12 @@ Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lug
 - O pacote `.deb` volta quando o projeto tiver um endereço público (decisão D6).
 - O corretor ortográfico fica desligado no campo de texto do balão: ligá-lo faria o Chromium baixar dicionários da internet.
 - O atalho global é fixo (`Ctrl+Shift+Espaço`, `⌘+Shift+Espaço` no macOS); escolher outro fica para uma próxima versão.
+- A OpenAI é usada pela API Chat Completions, que continua suportada; a API Responses fica para depois (ver [`docs/decisions.md`](docs/decisions.md)).
+- Modelos que "pensam" antes de responder: o Clipster mostra o personagem pensando, mas não exibe o raciocínio.
 
 ## Roadmap
 
-Fases 4 a 6 em [`SPEC.md` §34](SPEC.md#34-roadmap). Próxima: **Fase 4 — IA real** (Ollama/LM Studio, Claude e OpenAI, chave no cofre do sistema, lista de modelos, testar conexão, mensagens de erro de verdade).
+Fases 5 e 6 em [`SPEC.md` §34](SPEC.md#34-roadmap). Próxima: **Fase 5 — ferramentas** (ações no computador, sempre com a sua permissão).
 
 ## Licença
 

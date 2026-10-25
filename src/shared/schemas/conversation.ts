@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_COPY_CHARS, MAX_USER_MESSAGE_CHARS } from '../constants/ai';
+import { isProviderConsoleUrl } from '../ai/urls';
 import { CLIPSTER_ERROR_CODES } from '../errors/codes';
 import { AiProviderIdSchema, PersonalityIdSchema } from './settings';
 
@@ -53,7 +54,8 @@ export const StoredMessageSchema = z.object({
     .object({
       code: DisplayedErrorCodeSchema,
       retryAfterSeconds: z.number().int().nonnegative().optional(),
-      supportCode: z.string().max(16).optional()
+      supportCode: z.string().max(16).optional(),
+      consoleUrl: z.string().refine(isProviderConsoleUrl).optional()
     })
     .optional()
 });

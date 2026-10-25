@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { registerIpcHandlers, type IpcHandlerDeps } from '../../src/main/ipc/handlers';
 import { IpcHandlerError, IpcRegistry, type WindowRole } from '../../src/main/ipc/registry';
@@ -14,6 +17,9 @@ import { AssistantService, type ChatTarget } from '../../src/main/ai/assistantSe
 import { DemoProvider } from '../../src/main/ai/providers/demo/demoProvider';
 import type { ChatEvent } from '../../src/shared/ai/conversation';
 import { PERSONALITIES } from '../../src/shared/personalities';
+import { ProviderRegistry } from '../../src/main/ai/providerRegistry';
+import { SecretStore, type SafeStorageLike } from '../../src/main/storage/secretStore';
+import { startAnthropicMock, type MockServer } from '../support/mockProviders';
 import { FakeIpcMain, type FakeSender } from './fakes';
 
 /** Integração renderer → preload → IPC → main, com Electron substituído por dublês (SPEC §29.2). */
@@ -126,14 +132,40 @@ describe('IpcRegistry', () => {
   });
 });
 
+const ANTHROPIC_KEY = 'sk-ant-integracao-1234567890';
+
+/** Cofre falso: só "cifra" invertendo os bytes. Backend configurável (Linux sem cofre). */
+let backend = 'gnome_libsecret';
+const fakeSafeStorage: SafeStorageLike = {
+  isEncryptionAvailable: () => true,
+  encryptString: (text) => Buffer.from(text, 'utf8').reverse(),
+  decryptString: (buffer) => Buffer.from(buffer).reverse().toString('utf8'),
+  getSelectedStorageBackend: () => backend
+};
+
 describe('registerIpcHandlers (canais do Apêndice C)', () => {
   let settings: Settings;
   let deps: IpcHandlerDeps;
   let ipcMain: FakeIpcMain;
   let assistant: AssistantService;
   let chatEvents: { target: ChatTarget; event: ChatEvent }[];
+  let anthropic: MockServer;
+  let secretsDir: string;
+  let providers: ProviderRegistry;
+
+  beforeAll(async () => {
+    anthropic = await startAnthropicMock({ chunkDelayMs: 1, apiKey: ANTHROPIC_KEY });
+  });
+  afterAll(async () => {
+    await anthropic.close();
+  });
+  afterEach(() => {
+    rmSync(secretsDir, { recursive: true, force: true });
+    backend = 'gnome_libsecret';
+  });
 
   beforeEach(() => {
+    secretsDir = mkdtempSync(join(tmpdir(), 'clipster-ipc-'));
     const context = setup();
     ipcMain = context.ipcMain;
     settings = { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, provider: 'demo' } };
@@ -142,9 +174,22 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
       timing: { thinkingMs: 0, chunkMs: 0 },
       allowSimulations: true
     });
+    const logger = createLogger({ level: 'debug', sinks: [] });
+    providers = new ProviderRegistry({
+      settings: () => settings.ai,
+      secrets: SecretStore.load({
+        filePath: join(secretsDir, 'secrets.json'),
+        safeStorage: fakeSafeStorage,
+        platform: 'linux',
+        logger
+      }),
+      demo,
+      logger,
+      anthropicBaseUrl: anthropic.url
+    });
     assistant = new AssistantService({
-      resolveProvider: () => (settings.ai.provider === 'demo' ? demo : null),
-      model: () => 'demo',
+      resolveProvider: () => providers.resolve(),
+      model: () => providers.model(),
       personality: () => PERSONALITIES[settings.personality],
       uiLocale: () => 'pt-BR',
       environment: () => ({
@@ -192,6 +237,15 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
       onboarding: { complete: vi.fn() },
       balloon: { close: vi.fn(), resize: vi.fn() },
       clipboard: { writeText: vi.fn(() => Promise.resolve()) },
+      ai: {
+        status: () => providers.status(),
+        keyStatus: (provider) => providers.keyStatus(provider),
+        setKey: (provider, value, allowInsecure) =>
+          providers.setKey(provider, value, allowInsecure),
+        clearKey: (provider) => providers.clearKey(provider),
+        listModels: (provider) => providers.listModels(provider),
+        testConnection: (provider) => providers.testConnection(provider)
+      },
       app: {
         info: vi.fn(() => ({
           name: 'Clipster',
@@ -403,6 +457,94 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
     ipcMain.emit(IpcChannel.chatTyping, BALLOON, { typing: true });
     ipcMain.emit(IpcChannel.chatTyping, BALLOON, { typing: false });
     expect(deps.chat.typing).toHaveBeenCalledTimes(1);
+  });
+
+  it('Claude: chave pelas Configurações, modelos, conexão e conversa com o servidor simulado', async () => {
+    settings = { ...settings, ai: { ...settings.ai, provider: 'anthropic' } };
+    expect(await ipcMain.invoke(IpcChannel.aiStatusGet, BALLOON)).toEqual({
+      ok: true,
+      data: { provider: 'anthropic', ready: false, issue: 'missingKey' }
+    });
+    expect(
+      await ipcMain.invoke(IpcChannel.aiModelsList, SETTINGS, { provider: 'anthropic' })
+    ).toEqual({ ok: true, data: { status: 'error', code: 'MISSING_KEY' } });
+
+    const saved = await ipcMain.invoke(IpcChannel.secretsSet, SETTINGS, {
+      provider: 'anthropic',
+      value: ANTHROPIC_KEY
+    });
+    expect(saved).toMatchObject({
+      ok: true,
+      data: { hasKey: true, hint: '7890', secureBackend: true }
+    });
+    expect(JSON.stringify(saved)).not.toContain(ANTHROPIC_KEY);
+
+    const models = await ipcMain.invoke(IpcChannel.aiModelsList, SETTINGS, {
+      provider: 'anthropic'
+    });
+    expect(models).toMatchObject({ ok: true, data: { status: 'ok' } });
+    expect(JSON.stringify(models)).toContain('claude-teste-rapido');
+    expect(
+      await ipcMain.invoke(IpcChannel.aiConnectionTest, SETTINGS, { provider: 'anthropic' })
+    ).toEqual({ ok: true, data: { status: 'connected', modelCount: 2 } });
+
+    expect(await ipcMain.invoke(IpcChannel.aiStatusGet, BALLOON)).toMatchObject({
+      data: { ready: false, issue: 'missingModel' }
+    });
+    settings = { ...settings, ai: { ...settings.ai, anthropic: { model: 'claude-teste-rapido' } } };
+    expect(await ipcMain.invoke(IpcChannel.aiStatusGet, BALLOON)).toMatchObject({
+      data: { ready: true, issue: null }
+    });
+
+    await ipcMain.invoke(IpcChannel.chatSend, BALLOON, { text: 'Tudo bem?' });
+    await vi.waitFor(() => {
+      expect(assistant.snapshot().messages.at(-1)?.status).toBe('complete');
+    });
+    expect(assistant.snapshot().messages.at(-1)?.content).toBe(
+      'Olá, aqui é o Claude simulado (claude-teste-rapido).'
+    );
+  });
+
+  it('chave: sem cofre seguro exige confirmação; só as Configurações mexem em chaves', async () => {
+    backend = 'basic_text';
+    expect(
+      await ipcMain.invoke(IpcChannel.secretsSet, SETTINGS, {
+        provider: 'anthropic',
+        value: ANTHROPIC_KEY
+      })
+    ).toMatchObject({ ok: false, error: { code: 'INSECURE_STORAGE' } });
+    expect(
+      await ipcMain.invoke(IpcChannel.secretsSet, SETTINGS, {
+        provider: 'anthropic',
+        value: ANTHROPIC_KEY,
+        allowInsecure: true
+      })
+    ).toMatchObject({ ok: true, data: { hasKey: true, secureBackend: false } });
+
+    for (const sender of [BALLOON, CHARACTER, STRANGER]) {
+      for (const channel of [
+        IpcChannel.secretsSet,
+        IpcChannel.secretsStatus,
+        IpcChannel.aiModelsList
+      ]) {
+        expect(
+          await ipcMain.invoke(channel, sender, { provider: 'anthropic', value: 'x'.repeat(20) })
+        ).toMatchObject({ ok: false });
+      }
+    }
+    expect(await ipcMain.invoke(IpcChannel.aiStatusGet, CHARACTER)).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN_SENDER' }
+    });
+    expect(
+      await ipcMain.invoke(IpcChannel.secretsSet, SETTINGS, {
+        provider: 'anthropic',
+        value: 'com espaço no meio'
+      })
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
+    expect(
+      await ipcMain.invoke(IpcChannel.secretsClear, SETTINGS, { provider: 'anthropic' })
+    ).toMatchObject({ ok: true, data: { hasKey: false } });
   });
 
   it('todos os canais registrados estão na lista explícita', () => {

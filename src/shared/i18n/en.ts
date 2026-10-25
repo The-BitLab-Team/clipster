@@ -72,6 +72,61 @@ export const en = {
   'settings.personality.hint':
     'Personality changes the tone of the answers, not what Clipster can do.',
 
+  'settings.ai.provider.openaiCompatible': 'OpenAI-compatible server (Ollama, LM Studio, OpenAI)',
+  'settings.ai.provider.anthropic': 'Claude (Anthropic)',
+  'settings.ai.openaiHint':
+    'Ollama and LM Studio run on your computer for free. OpenAI is paid and needs a key.',
+  'settings.ai.anthropicHint': 'Needs an Anthropic API key (paid service).',
+  'settings.ai.serverCard': 'Server',
+  'settings.ai.server': 'Server address',
+  'settings.ai.server.hint': 'Ends in /v1. Pick a shortcut or type the address and press Enter.',
+  'settings.ai.server.invalid': 'Use an address that starts with http:// or https://.',
+  'settings.ai.presets': 'Shortcuts',
+  'settings.ai.preset.ollama': 'Ollama',
+  'settings.ai.preset.lmstudio': 'LM Studio',
+  'settings.ai.preset.openai': 'OpenAI',
+  'settings.ai.key': 'API key',
+  'settings.ai.key.optional': "Local servers usually don't need a key.",
+  'settings.ai.key.placeholder': 'Paste the key here',
+  'settings.ai.key.save': 'Save key',
+  'settings.ai.key.remove': 'Remove key',
+  'settings.ai.key.saved': 'Key saved: •••• {hint}',
+  'settings.ai.key.savedNoHint': 'Key saved.',
+  'settings.ai.key.fromEnv': 'Using the key from the .env file (development only).',
+  'settings.ai.key.never':
+    'The key is encrypted in the system vault and never comes back to this screen.',
+  'settings.ai.key.insecure':
+    'This system has no active password vault (such as GNOME Keyring or KWallet). The key would be stored without real protection.',
+  'settings.ai.key.insecureConfirm': 'I understand the risk: save anyway',
+  'settings.ai.key.otherServer':
+    "The saved key belongs to {origin} and won't be sent to this address.",
+  'settings.ai.key.httpWarning':
+    'This address uses http:// outside your computer: the key would travel unencrypted. Prefer https:// or a local server.',
+  'settings.ai.key.invalid':
+    "That key doesn't look valid: it needs at least 8 characters and no spaces.",
+  'settings.ai.model': 'Model',
+  'settings.ai.model.choose': 'Choose a model',
+  'settings.ai.model.custom': 'Other (type the name)',
+  'settings.ai.model.customLabel': 'Model name',
+  'settings.ai.model.customHint': 'Type the exact name and press Enter.',
+  'settings.ai.model.refresh': 'Refresh list',
+  'settings.ai.model.loading': 'Fetching models…',
+  'settings.ai.model.deprecated': '{name} (being retired)',
+  'settings.ai.model.empty':
+    'No models found. In Ollama, download one with "ollama pull" and refresh the list.',
+  'settings.ai.model.listFailed': "Couldn't fetch the list: {reason}",
+  'settings.ai.test': 'Test connection',
+  'settings.ai.testing': 'Testing…',
+  'settings.ai.connection.ok': 'Connected. Models available: {count}.',
+  'settings.ai.connection.notCompatible':
+    "The address answered, but it doesn't look like an OpenAI-compatible server. Check that it ends in /v1.",
+  'settings.ai.connection.unknown':
+    "Couldn't connect. The technical detail is in the log (About › Open logs folder).",
+  'settings.ai.connection.missingKey': 'The API key is missing.',
+  'settings.ai.privacyNote':
+    'With a cloud AI, your messages go to the chosen provider. With Ollama or LM Studio, everything stays on your computer.',
+
+  'settings.appearance.chatScale': 'Conversation balloon size',
   'settings.appearance.characterScale': 'Character size',
   'settings.appearance.animations': 'Animations',
   'settings.appearance.animations.system': 'Follow the system',
@@ -98,9 +153,6 @@ export const en = {
   'settings.ai.provider.demo': 'Demo mode',
   'settings.ai.demoHint': 'Pre-programmed sample answers: no AI and no internet.',
   'settings.ai.noneHint': 'Without an AI, the balloon shows how to set one up.',
-  'settings.ai.comingSoon':
-    'Connecting to Ollama, LM Studio, Claude and OpenAI arrives in the next version. Until then, nothing leaves your computer.',
-  'settings.appearance.chatScale': 'Conversation balloon size',
   'settings.privacy.saveHistory': 'Save conversation history',
   'settings.privacy.saveHistory.hint':
     'Stays on this computer only. When off, a conversation lasts until "New conversation" or until you quit.',
@@ -158,6 +210,10 @@ export const en = {
   'balloon.noProvider.body': 'To chat, set up an AI or try demo mode.',
   'balloon.noProvider.configure': 'Set up AI',
   'balloon.noProvider.demo': 'Use demo mode',
+  'balloon.noProvider.missingKey.title': 'The API key is missing',
+  'balloon.noProvider.missingKey.body': 'Enter the key in Settings › AI, or use demo mode.',
+  'balloon.noProvider.missingModel.title': 'No model chosen yet',
+  'balloon.noProvider.missingModel.body': 'Choose a model in Settings › AI, or use demo mode.',
   'balloon.suggestions.label': 'Try asking',
   'balloon.suggestion.rename': 'How do I rename a file?',
   'balloon.suggestion.screenshot': 'How do I take a screenshot?',
@@ -198,6 +254,7 @@ export const en = {
   'error.action.configureAi': 'Set up AI',
   'error.action.useDemo': 'Demo mode',
   'error.action.openSettings': 'Open Settings',
+  'error.action.openConsole': 'Open account dashboard',
   'error.action.chooseModel': 'Choose model',
   'error.action.retry': 'Try again',
   'error.action.newConversation': 'New conversation',

@@ -147,31 +147,6 @@ export function GeneralSection({ settings, info, t, save }: SectionProps) {
   );
 }
 
-export function AiSection({ settings, t, save }: SectionProps) {
-  const options: { value: 'none' | 'demo'; label: string }[] = [
-    { value: 'none', label: t('settings.ai.provider.none') },
-    { value: 'demo', label: t('settings.ai.provider.demo') }
-  ];
-  const current = settings.ai.provider === 'demo' ? 'demo' : 'none';
-  return (
-    <>
-      <Card>
-        <SelectField
-          id="ai-provider"
-          label={t('settings.ai.provider')}
-          hint={current === 'demo' ? t('settings.ai.demoHint') : t('settings.ai.noneHint')}
-          value={current}
-          options={options}
-          onChange={(provider) => {
-            save({ ai: { provider } });
-          }}
-        />
-      </Card>
-      <p className="field__hint section-note">{t('settings.ai.comingSoon')}</p>
-    </>
-  );
-}
-
 export function PersonalitySection({ settings, t, save }: SectionProps) {
   const options: { id: PersonalityId; name: string; description: string; sample: string }[] = [
     {

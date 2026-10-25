@@ -13,9 +13,9 @@ import type {
   SettingsSection,
   ThemePreference
 } from '../../shared/schemas/settings';
+import { AiSection } from './AiSection';
 import {
   AboutSection,
-  AiSection,
   AppearanceSection,
   GeneralSection,
   PersonalitySection,

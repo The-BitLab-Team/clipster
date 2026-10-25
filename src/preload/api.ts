@@ -91,6 +91,19 @@ export function createClipsterApi(ipc: IpcRendererLike): ClipsterApi {
           provider: result.provider
         })
     },
+    ai: {
+      status: () => invoke(IpcChannel.aiStatusGet),
+      onStatus: (listener) => subscribe(IpcChannel.aiStatus, listener),
+      keyStatus: (provider) => invoke(IpcChannel.secretsStatus, { provider }),
+      setKey: (provider, value, allowInsecure) =>
+        invoke(
+          IpcChannel.secretsSet,
+          allowInsecure === undefined ? { provider, value } : { provider, value, allowInsecure }
+        ),
+      clearKey: (provider) => invoke(IpcChannel.secretsClear, { provider }),
+      listModels: (provider) => invoke(IpcChannel.aiModelsList, { provider }),
+      testConnection: (provider) => invoke(IpcChannel.aiConnectionTest, { provider })
+    },
     balloon: {
       close: () => invoke(IpcChannel.windowsBalloonClose),
       resize: (height) => {

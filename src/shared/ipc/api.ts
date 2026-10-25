@@ -1,4 +1,11 @@
 import type { ChatEvent, ConversationSnapshot } from '../ai/conversation';
+import type {
+  AiStatus,
+  ConnectionResult,
+  KeyedProvider,
+  KeyStatus,
+  ModelListResult
+} from '../ai/providers';
 import type { CharacterView } from '../character/states';
 import type { PersonalityId, Settings, SettingsPatch, SettingsSection } from '../schemas/settings';
 import type { BalloonPlacement, BalloonShown } from '../ui/balloon';
@@ -16,7 +23,9 @@ export type IpcErrorCode =
   /** Nenhuma IA configurada. */
   | 'NOT_CONFIGURED'
   /** O atalho global escolhido já é usado por outro programa. */
-  | 'SHORTCUT_IN_USE';
+  | 'SHORTCUT_IN_USE'
+  /** Não há cofre seguro para a chave; é preciso confirmar (SPEC §21). */
+  | 'INSECURE_STORAGE';
 
 export interface IpcError {
   code: IpcErrorCode;
@@ -60,6 +69,12 @@ export interface IpcInvokeResponses {
   [IpcChannel.onboardingComplete]: null;
   [IpcChannel.windowsBalloonClose]: null;
   [IpcChannel.clipboardWriteText]: null;
+  [IpcChannel.secretsSet]: KeyStatus;
+  [IpcChannel.secretsClear]: KeyStatus;
+  [IpcChannel.secretsStatus]: KeyStatus;
+  [IpcChannel.aiModelsList]: ModelListResult;
+  [IpcChannel.aiConnectionTest]: ConnectionResult;
+  [IpcChannel.aiStatusGet]: AiStatus;
   [IpcChannel.windowsOpenSettings]: null;
   [IpcChannel.windowsHideClipster]: null;
   [IpcChannel.appInfo]: AppInfo;
@@ -76,6 +91,7 @@ export interface IpcEventPayloads {
   [IpcChannel.chatEvent]: ChatEvent;
   [IpcChannel.balloonPlacement]: BalloonPlacement;
   [IpcChannel.balloonShown]: BalloonShown;
+  [IpcChannel.aiStatus]: AiStatus;
 }
 
 export interface OnboardingResult {
@@ -118,6 +134,21 @@ export interface ClipsterApi {
   };
   onboarding: {
     complete(result: OnboardingResult): Promise<IpcResult<null>>;
+  };
+  ai: {
+    /** Se dá para conversar com a IA escolhida e, se não, o que falta. */
+    status(): Promise<IpcResult<AiStatus>>;
+    onStatus(listener: (status: AiStatus) => void): Unsubscribe;
+    /** Só as Configurações: a chave vai uma vez para o main e nunca volta (SPEC §21). */
+    keyStatus(provider: KeyedProvider): Promise<IpcResult<KeyStatus>>;
+    setKey(
+      provider: KeyedProvider,
+      value: string,
+      allowInsecure?: boolean
+    ): Promise<IpcResult<KeyStatus>>;
+    clearKey(provider: KeyedProvider): Promise<IpcResult<KeyStatus>>;
+    listModels(provider: KeyedProvider): Promise<IpcResult<ModelListResult>>;
+    testConnection(provider: KeyedProvider): Promise<IpcResult<ConnectionResult>>;
   };
   balloon: {
     close(): Promise<IpcResult<null>>;

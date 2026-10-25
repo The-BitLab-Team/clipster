@@ -141,6 +141,6 @@ export class DemoProvider implements AIProvider {
   }
 
   testConnection(): Promise<ConnectionStatus> {
-    return Promise.resolve({ status: 'connected' });
+    return Promise.resolve({ status: 'connected', modelCount: 1 });
   }
 }
