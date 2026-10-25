@@ -3,6 +3,7 @@ import { SETTINGS_SECTIONS } from '../constants/sections';
 import { CHARACTER_SCALE } from '../constants/ui';
 import { CHAT_SCALE } from '../ui/balloon';
 import { isHttpUrl } from '../ai/urls';
+import { PermissionsSettingsSchema } from './permissions';
 
 /**
  * Esquema das configurações (SPEC §12 e §13).
@@ -109,12 +110,15 @@ export const SettingsSchema = z.object({
   appearance: AppearanceSettingsSchema,
   privacy: PrivacySettingsSchema,
   ai: AiSettingsSchema,
+  /** Permissões "sempre" das ferramentas (SPEC §22). Só o main altera. */
+  permissions: PermissionsSettingsSchema,
   window: WindowStateSchema
 });
 
 /**
- * Patch enviado pelos renderers. `schemaVersion`, `firstRunCompleted`, `hideTipShown` e
- * `window` não podem ser alterados por esse caminho: são gerenciados pelo main process.
+ * Patch enviado pelos renderers. `schemaVersion`, `firstRunCompleted`, `hideTipShown`,
+ * `permissions` e `window` não podem ser alterados por esse caminho: são gerenciados pelo
+ * main process (uma permissão só nasce de uma resposta a um pedido real, SPEC §22).
  */
 export const SettingsPatchSchema = z.strictObject({
   general: z.strictObject(generalShape).partial().optional(),
@@ -167,6 +171,7 @@ export const DEFAULT_SETTINGS: Settings = {
     openaiCompatible: { baseUrl: 'http://localhost:11434/v1', model: '' },
     anthropic: { model: '' }
   },
+  permissions: { grants: [] },
   window: {
     characterPosition: null
   }

@@ -236,3 +236,16 @@ export async function* readSse(stream: ReadableStream<Uint8Array>): AsyncGenerat
     reader.releaseLock();
   }
 }
+
+/**
+ * Argumentos de uma chamada de ferramenta, vindos como texto JSON do provider. Vazio = `{}`.
+ * JSON inválido volta como o próprio texto: a validação da ferramenta recusa e avisa o modelo.
+ */
+export function parseToolInput(json: string): unknown {
+  if (json.trim() === '') return {};
+  try {
+    return JSON.parse(json) as unknown;
+  } catch {
+    return json;
+  }
+}

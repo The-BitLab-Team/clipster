@@ -104,6 +104,16 @@ export function createClipsterApi(ipc: IpcRendererLike): ClipsterApi {
       listModels: (provider) => invoke(IpcChannel.aiModelsList, { provider }),
       testConnection: (provider) => invoke(IpcChannel.aiConnectionTest, { provider })
     },
+    permissions: {
+      respond: (requestId, decision) =>
+        invoke(IpcChannel.permissionsRespond, { requestId, decision }),
+      list: () => invoke(IpcChannel.permissionsList),
+      revoke: (grantId) => invoke(IpcChannel.permissionsRevoke, { grantId }),
+      onChange: (listener) =>
+        subscribe(IpcChannel.permissionsChanged, () => {
+          listener();
+        })
+    },
     balloon: {
       close: () => invoke(IpcChannel.windowsBalloonClose),
       resize: (height) => {

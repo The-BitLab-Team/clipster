@@ -21,6 +21,8 @@ export interface MachineContext {
   notificationPending: boolean;
   /** Estado forçado pela pré-visualização de desenvolvimento. */
   previewing: boolean;
+  /** Uma ferramenta espera a permissão do usuário: o personagem mostra o aviso até a resposta. */
+  awaitingPermission: boolean;
 }
 
 export interface MachineSnapshot {
@@ -44,6 +46,9 @@ export type CharacterEvent =
   | { type: 'NOTIFICATION_DISMISSED' }
   | { type: 'INACTIVITY_TIMEOUT' }
   | { type: 'SUCCESS_FEEDBACK' }
+  /** Uma ferramenta espera a permissão do usuário (SPEC §22). */
+  | { type: 'PERMISSION_REQUESTED' }
+  | { type: 'PERMISSION_RESOLVED' }
   | { type: 'DRAG_START' }
   | { type: 'DRAG_END' }
   | { type: 'TRANSIENT_ELAPSED' }
@@ -63,7 +68,13 @@ export interface TransitionResult {
 
 export const INITIAL_SNAPSHOT: MachineSnapshot = {
   state: 'idle',
-  context: { balloonOpen: false, generating: false, notificationPending: false, previewing: false }
+  context: {
+    balloonOpen: false,
+    generating: false,
+    notificationPending: false,
+    previewing: false,
+    awaitingPermission: false
+  }
 };
 
 const USER_EVENTS: ReadonlySet<CharacterEventType> = new Set<CharacterEventType>([
@@ -162,7 +173,8 @@ function step(
     case 'CLICK':
       if (state === 'sleeping') return go('confused', timings.confusedMs);
       if (state === 'error') return go('idle');
-      if (state === 'notification') {
+      // Esperando permissão: o clique abre o balão com o pedido; o aviso continua.
+      if (state === 'notification' && !context.awaitingPermission) {
         context = { ...context, notificationPending: false };
         return go('idle');
       }
@@ -181,20 +193,34 @@ function step(
 
     case 'MESSAGE_SENT':
       // Uma nova pergunta do usuário tem precedência sobre qualquer pose anterior.
-      context = { ...context, generating: true };
+      context = { ...context, generating: true, awaitingPermission: false };
       return go('thinking');
 
     case 'FIRST_TOKEN':
       return state === 'thinking' ? go('talking') : stay();
 
     case 'STREAM_DONE':
-    case 'CANCELLED':
-      context = { ...context, generating: false };
-      return BUSY.has(state) ? go('idle') : stay();
+    case 'CANCELLED': {
+      const wasAwaiting = context.awaitingPermission;
+      context = { ...context, generating: false, awaitingPermission: false };
+      return BUSY.has(state) || (state === 'notification' && wasAwaiting) ? go('idle') : stay();
+    }
 
     case 'AI_ERROR':
-      context = { ...context, generating: false };
+      context = { ...context, generating: false, awaitingPermission: false };
       return go('error', timings.errorMs);
+
+    case 'PERMISSION_REQUESTED':
+      context = { ...context, awaitingPermission: true };
+      return context.generating && state !== 'error' ? go('notification') : stay();
+
+    case 'PERMISSION_RESOLVED': {
+      const wasAwaiting = context.awaitingPermission;
+      context = { ...context, awaitingPermission: false };
+      return state === 'notification' && wasAwaiting && context.generating
+        ? go('thinking')
+        : stay();
+    }
 
     case 'ERROR_DISMISSED':
       return state === 'error' ? go('idle') : stay();
@@ -214,7 +240,9 @@ function step(
       return CALM.has(state) ? go('happy', timings.happyMs) : stay();
 
     case 'DRAG_START':
-      return BUSY.has(state) || state === 'error' ? stay() : go('dragging');
+      return BUSY.has(state) || state === 'error' || context.awaitingPermission
+        ? stay()
+        : go('dragging');
 
     case 'DRAG_END':
       return state === 'dragging' ? go('idle') : stay();
@@ -224,6 +252,8 @@ function step(
         context = { ...context, previewing: false };
         return go('idle');
       }
+      // Esperando permissão, o aviso fica até a resposta (o timer nem deveria existir).
+      if (context.awaitingPermission && state === 'notification') return stay();
       // A notificação some da pose, mas o indicador continua até ser vista.
       return SELF_ENDING.has(state) ? go('idle') : stay();
 

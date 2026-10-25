@@ -11,6 +11,7 @@ import {
   WindowStateSchema,
   type Settings
 } from '../../shared/schemas/settings';
+import { PermissionsSettingsSchema } from '../../shared/schemas/permissions';
 
 /**
  * Leitura tolerante do arquivo de configurações (SPEC §13):
@@ -144,6 +145,13 @@ export function parseStoredSettings(raw: unknown): ParsedSettings {
       issues
     ),
     ai: recoverSection('ai', AiSettingsSchema, DEFAULT_SETTINGS.ai, migrated.ai, issues),
+    permissions: recoverSection(
+      'permissions',
+      PermissionsSettingsSchema,
+      DEFAULT_SETTINGS.permissions,
+      migrated.permissions,
+      issues
+    ),
     window: recoverSection(
       'window',
       WindowStateSchema,

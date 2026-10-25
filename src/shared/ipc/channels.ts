@@ -34,6 +34,11 @@ export const IpcChannel = {
   aiStatusGet: 'ai:status:get',
   aiStatus: 'ai:status',
 
+  permissionsRespond: 'permissions:respond',
+  permissionsList: 'permissions:list',
+  permissionsRevoke: 'permissions:revoke',
+  permissionsChanged: 'permissions:changed',
+
   windowsBalloonClose: 'windows:balloon:close',
   balloonResize: 'balloon:resize',
   balloonPlacement: 'balloon:placement',

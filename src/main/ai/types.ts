@@ -31,6 +31,40 @@ export interface RequestHints {
   now: Date;
 }
 
+/** Ferramenta oferecida ao modelo (SPEC §22). `inputSchema` é JSON Schema de um objeto. */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Readonly<Record<string, unknown>>;
+}
+
+/** Chamada de ferramenta pedida pelo modelo. `input` ainda não foi validado. */
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: unknown;
+}
+
+/** Resultado devolvido ao modelo. Sempre texto (JSON), tratado por ele como dado. */
+export interface ToolResult {
+  callId: string;
+  name: string;
+  content: string;
+  isError: boolean;
+}
+
+/**
+ * Uma rodada de ferramentas dentro da mesma resposta: o que o modelo escreveu, o que pediu e
+ * o que voltou. `continuation` é opaco: o provider que o criou sabe usá-lo (ex.: blocos de
+ * raciocínio da Anthropic, que precisam voltar exatamente como vieram).
+ */
+export interface ToolRound {
+  text: string;
+  calls: readonly ToolCall[];
+  results: readonly ToolResult[];
+  continuation?: unknown;
+}
+
 export interface ChatRequest {
   requestId: string;
   /** Montado pelo ContextBuilder. */
@@ -41,16 +75,23 @@ export interface ChatRequest {
   maxOutputTokens: number;
   signal: AbortSignal;
   hints: RequestHints;
+  /** Ferramentas oferecidas nesta rodada; ausente = nenhuma (ex.: limite atingido). */
+  tools?: readonly ToolDefinition[];
+  /** Rodadas anteriores desta mesma resposta, em ordem. */
+  toolRounds?: readonly ToolRound[];
 }
 
 export type ChatStreamEvent =
   | { type: 'text-delta'; text: string }
   /** O modelo está "pensando" antes de responder: a resposta começou, mas ainda sem texto. */
   | { type: 'thinking' }
+  | { type: 'tool-call'; call: ToolCall }
   | {
       type: 'done';
       stopReason?: string;
       usage?: { inputTokens?: number; outputTokens?: number };
+      /** Ver `ToolRound.continuation`. */
+      continuation?: unknown;
     }
   | { type: 'error'; error: ClipsterError };
 
@@ -88,7 +129,7 @@ export async function collectResponse(
   for await (const event of stream) {
     if (event.type === 'text-delta') text += event.text;
     else if (event.type === 'error') throw event.error;
-    else if (event.type === 'thinking') continue;
+    else if (event.type === 'thinking' || event.type === 'tool-call') continue;
     else return event.stopReason === undefined ? { text } : { text, stopReason: event.stopReason };
   }
   return { text };

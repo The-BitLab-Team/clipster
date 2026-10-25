@@ -1,3 +1,4 @@
+import type { PermissionDecision, PermissionGrantView } from '../tools/types';
 import type { ChatEvent, ConversationSnapshot } from '../ai/conversation';
 import type {
   AiStatus,
@@ -75,6 +76,9 @@ export interface IpcInvokeResponses {
   [IpcChannel.aiModelsList]: ModelListResult;
   [IpcChannel.aiConnectionTest]: ConnectionResult;
   [IpcChannel.aiStatusGet]: AiStatus;
+  [IpcChannel.permissionsRespond]: { accepted: boolean };
+  [IpcChannel.permissionsList]: PermissionGrantView[];
+  [IpcChannel.permissionsRevoke]: { revoked: boolean };
   [IpcChannel.windowsOpenSettings]: null;
   [IpcChannel.windowsHideClipster]: null;
   [IpcChannel.appInfo]: AppInfo;
@@ -92,6 +96,7 @@ export interface IpcEventPayloads {
   [IpcChannel.balloonPlacement]: BalloonPlacement;
   [IpcChannel.balloonShown]: BalloonShown;
   [IpcChannel.aiStatus]: AiStatus;
+  [IpcChannel.permissionsChanged]: null;
 }
 
 export interface OnboardingResult {
@@ -149,6 +154,17 @@ export interface ClipsterApi {
     clearKey(provider: KeyedProvider): Promise<IpcResult<KeyStatus>>;
     listModels(provider: KeyedProvider): Promise<IpcResult<ModelListResult>>;
     testConnection(provider: KeyedProvider): Promise<IpcResult<ConnectionResult>>;
+  };
+  permissions: {
+    /** Só o balão: resposta ao pedido de permissão de uma ferramenta (SPEC §22.2). */
+    respond(
+      requestId: string,
+      decision: PermissionDecision
+    ): Promise<IpcResult<{ accepted: boolean }>>;
+    /** Só as Configurações: permissões que valem além de uma chamada. */
+    list(): Promise<IpcResult<PermissionGrantView[]>>;
+    revoke(grantId: string): Promise<IpcResult<{ revoked: boolean }>>;
+    onChange(listener: () => void): Unsubscribe;
   };
   balloon: {
     close(): Promise<IpcResult<null>>;

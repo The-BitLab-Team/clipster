@@ -215,3 +215,39 @@ O protocolo exige papéis alternados; uma pergunta sem resposta seria grudada na
 
 ### 2026-10-24 · Versão 0.4.0
 IA real: servidores compatíveis com OpenAI (Ollama, LM Studio, OpenAI) e Claude, chaves no cofre do sistema, lista de modelos, testar conexão e erros da SPEC §23 (Fase 4).
+
+---
+
+## Fase 5 — ferramentas
+
+### 2026-10-25 · Laço de ferramentas no AssistantService
+O provider devolve `tool-call`; o AssistantService executa cada chamada (pelo `ToolExecutor`) e pede a continuação com `toolRounds` (texto da rodada, chamadas, resultados e uma `continuation` opaca do provider), até o modelo responder só com texto. Tudo numa resposta só: o balão mostra as ferramentas usadas acima do texto. **Descartado:** mensagens com papel `tool` na conversa (o "'tool' entra na Fase 5" do §20.1): cada provider tem um formato próprio para isso, e a conversa guardada (e o histórico) só precisa do texto e de quais ferramentas foram usadas. Para as perguntas seguintes, o modelo recebe só o texto das respostas anteriores.
+
+### 2026-10-25 · Limite de 5 chamadas e tempos-limite
+A partir da 6ª chamada, a ferramenta é recusada sem executar e a rodada seguinte vai sem ferramentas, forçando uma resposta em texto. O tempo da IA (primeiro pedaço e total) para enquanto as ferramentas rodam ou esperam o usuário; cada ferramenta tem 10 s para terminar; o pedido de permissão vence em 2 min (sem resposta = cancelar, SPEC §22.2). Cada rodada tem o seu prazo para o primeiro pedaço.
+
+### 2026-10-25 · Permissão por ferramenta, não por capacidade
+Uma concessão vale para a ferramenta e as permissões em que foi dada (`{ tool, permissions }`). Permitir "ler arquivos" para uma ferramenta não libera outra que também lê arquivos, e uma ferramenta que passe a pedir uma permissão nova pergunta de novo. "Sempre" vai para `settings.json` (`permissions.grants`, só o main altera; `settings:update` recusa); "nesta sessão", só na memória. Ao ler, o risco manda: concessões guardadas nunca valem para ação destrutiva, e "sempre" nunca vale para escrita, mesmo que alguém edite o arquivo.
+
+### 2026-10-25 · Pedido de permissão dentro do balão, pelo `chat:event`
+O pedido vai como atividade da ferramenta (`status: 'awaiting'` + `prompt`) no evento `chat:event` `tool` e no snapshot da conversa, então reabrir ou recarregar o balão mostra o pedido pendente. Substitui o evento `permissions:request` do Apêndice C. A resposta vem por `permissions:respond` (só o balão); o main confere se o pedido existe e se a escolha é permitida para o risco. Foco inicial em Cancelar em todos os pedidos (a SPEC exige nas destrutivas; nas outras, evita aprovar com um Enter distraído). `Esc` recusa. **Descartado:** diálogo nativo (bloquearia os testes e roubaria o foco).
+
+### 2026-10-25 · O personagem avisa enquanto espera
+Eventos `PERMISSION_REQUESTED` e `PERMISSION_RESOLVED` na máquina de estados: pensando/falando → `notification` (o "!") até a resposta; clique, digitação, arrasto e o timer transitório não tiram o aviso; Parar, erro ou fim da resposta, sim. O balão não abre sozinho (SPEC §2): o usuário clica no personagem e vê o pedido.
+
+### 2026-10-25 · Textos: descrição para a IA em `personalities/`, pedido no i18n
+`description` (SPEC §22.1) fica em `src/shared/personalities/tools.ts`, junto dos outros prompts, assim como as notas curtas que acompanham resultados com erro. `describeAction` monta o `LocalizedString` com o i18n (`tool.<nome>.action`), nos dois idiomas. Argumentos que aparecem no pedido não aceitam caracteres de controle nem de direção de texto (um nome de arquivo não pode se disfarçar).
+
+### 2026-10-25 · Ferramentas de teste
+`demoDestructiveAction` (SPEC §22.3) e `demoReadAction` (nova: leitura fictícia, para testar "nesta sessão", "sempre" e Revogar, já que as ferramentas reais do MVP não pedem permissão). Só com `CLIPSTER_DEV_TOOLS=1` e fora do app instalado (ou em E2E). Nenhuma toca em disco. O Demo as chama com `/simular ferramenta apagar|ler|loop`.
+
+### 2026-10-25 · Ferramentas nos providers
+- **Claude:** `tools` com `input_schema` (JSON Schema gerado do Zod), blocos `tool_use` montados a partir de `input_json_delta`; na continuação, o conteúdo do assistente volta como veio (blocos de raciocínio com assinatura incluídos, exigência da API quando há ferramentas) e os resultados vão como `tool_result`.
+- **Compatível com OpenAI:** `tools` no formato `function`, `delta.tool_calls` em pedaços, continuação com `tool_calls` + mensagens `tool`. Modelo local sem suporte a ferramentas (Ollama responde 400 "does not support tools") → nova tentativa sem elas.
+- **Demo:** "que horas são?" e "qual a sua versão?" passam pelas ferramentas (SPEC §20.3).
+
+### 2026-10-25 · Auditoria no log
+`tool.audit` com requisição, ferramenta, decisão (`not_required`, `already_granted`, `granted_once/session/always`, `denied`, `timeout`, `cancelled`, `unknown_tool`, `invalid_input`, `limit_reached`), sucesso e duração. Nunca os argumentos nem o resultado. **Descartado por ora:** tela de auditoria nas Configurações (o log basta para o MVP).
+
+### 2026-10-25 · Versão 0.5.0
+Ferramentas e permissões (Fase 5).

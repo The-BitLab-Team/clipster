@@ -14,7 +14,7 @@ Em desenvolvimento (`npm run dev`), a pasta se chama `Clipster (dev)`.
 
 | Arquivo | Conteúdo |
 |---------|----------|
-| `settings.json` | Preferências, personalidade, posição do personagem, provider e modelo de IA escolhidos (nunca a chave) |
+| `settings.json` | Preferências, personalidade, posição do personagem, provider e modelo de IA escolhidos (nunca a chave) e as permissões "sempre" das ferramentas |
 | `secrets.json` | Chaves de API, **cifradas** pelo cofre do sistema. Só existe se você salvar uma chave |
 | `settings.corrupt-<data>.json` | Cópia de segurança, criada só se o arquivo de configurações estiver inválido |
 | `history.json` | Conversas. **Só existe se você ligar** Configurações › Privacidade › "Salvar histórico de conversas" |
@@ -54,6 +54,17 @@ Nunca vão nome de usuário, nome do computador, pasta pessoal, arquivos, tela o
 Com um servidor **local**, nada sai do seu computador. Com um serviço **na nuvem**, o que você escreve passa a seguir também a política de privacidade desse serviço. O Clipster não manda nada para nenhum outro lugar: listar modelos e "Testar conexão" falam só com o endereço configurado, e só quando você pede.
 
 **Chaves de API:** ficam cifradas em `secrets.json` (DPAPI no Windows, Keychain no macOS, keyring no Linux). A tela de Configurações nunca recebe a chave de volta, só os últimos 4 caracteres. Os logs nunca registram chaves. No Linux sem keyring, a cifra não protege de verdade; o Clipster avisa e só salva se você confirmar.
+
+## Ferramentas e permissões
+
+A IA pode usar ferramentas do Clipster. Hoje são duas, e nenhuma acessa nada do computador:
+
+- **Consultar o relógio:** data, hora e fuso.
+- **Consultar a versão do Clipster:** versões do app, do Electron e do Chromium, e o sistema operacional.
+
+Qualquer ferramenta que acesse algo do computador (arquivos, área de transferência, programas, internet) pede permissão antes, no balão, dizendo o que vai fazer. Você escolhe "uma vez", "nesta sessão" ou "sempre", conforme o risco; ações que não dá para desfazer são confirmadas toda vez. O que foi permitido além de uma vez aparece em Configurações › Privacidade › Permissões, com Revogar. As permissões "sempre" ficam em `settings.json`; as "nesta sessão" somem ao fechar o app.
+
+O resultado de uma ferramenta vai para o provedor de IA escolhido, junto com a conversa. O log registra que a ferramenta foi usada, a decisão e se deu certo, nunca os argumentos nem o resultado.
 
 ## Como apagar tudo
 

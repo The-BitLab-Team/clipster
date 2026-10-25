@@ -10,7 +10,7 @@ Um pequeno companheiro de desktop, animado, com personalidade e foco em privacid
 
 ## Estado atual
 
-Versão **0.4.0**: Fases 0 a 4 do [roadmap](SPEC.md#34-roadmap) concluídas.
+Versão **0.5.0**: Fases 0 a 5 do [roadmap](SPEC.md#34-roadmap) concluídas.
 
 | Recurso | Situação |
 |---------|----------|
@@ -30,7 +30,8 @@ Versão **0.4.0**: Fases 0 a 4 do [roadmap](SPEC.md#34-roadmap) concluídas.
 | Histórico de conversas opcional (desligado por padrão) | ✅ |
 | **IA de verdade**: servidor local compatível com OpenAI (Ollama, LM Studio), Claude e OpenAI | ✅ |
 | Chave de API no cofre do sistema, lista de modelos, "Testar conexão", mensagens de erro claras | ✅ |
-| Ferramentas com permissões | Fase 5 |
+| **Ferramentas** (hora e versão do Clipster), com pedido de permissão para o que acessar o computador | ✅ |
+| Privacidade › Permissões: o que já foi permitido, com Revogar | ✅ |
 
 ## Conversando com o Clipster
 
@@ -39,8 +40,25 @@ Versão **0.4.0**: Fases 0 a 4 do [roadmap](SPEC.md#34-roadmap) concluídas.
 - **Personalidade:** troque no próprio balão (Prestativo | Espirituoso), na bandeja ou nas Configurações. A conversa continua; a próxima resposta já vem no tom novo.
 - **Modo demonstração:** responde a algumas perguntas de exemplo (renomear arquivo, captura de tela, copiar e colar, que horas são, quem é você), para o seu sistema operacional, em português ou inglês. Fora disso, ele avisa que precisa de uma IA configurada. Sempre aparece com o selo **Demo**.
 - **Histórico:** desligado por padrão; sem ele, a conversa dura até "Nova conversa" ou até fechar o app. Ligado em Configurações › Privacidade, fica só no seu computador e a última conversa volta quando você reabre o Clipster.
+- **Ferramentas:** a IA pode consultar a hora e a versão do Clipster. Cada uso aparece acima da resposta (ex.: "✓ Consultou o relógio").
 
-**Em desenvolvimento**, o modo Demo aceita comandos que simulam problemas, para ver as mensagens de erro sem gastar nada: `/simular erro 429` (também 401, 404, 402, 529, 400), `/simular timeout` (espera os 30 s do tempo-limite), `/simular offline`, `/simular queda` (cai no meio da resposta) e `/simular markdown` (resposta com link perigoso, imagem e HTML, para conferir que nada disso passa). No app instalado, esses comandos não existem.
+### Permissões
+
+Ferramentas que acessam algo do computador pedem antes, dentro do balão, com um texto escrito pela própria ferramenta (nunca pela IA) e o foco começando em **Cancelar**. Enquanto espera, o personagem mostra um aviso.
+
+<p align="center">
+  <img src="docs/images/permission.png" alt="Dois pedidos de permissão no balão: à esquerda, tema claro, uma ação que não dá para desfazer, só com Cancelar e Permitir uma vez; à direita, tema escuro, uma leitura com Cancelar, Permitir uma vez, Nesta sessão e Sempre" width="640">
+</p>
+
+- **Leitura:** uma vez, nesta sessão ou sempre. **Alteração:** uma vez ou nesta sessão. **Ação que não dá para desfazer:** só uma vez, toda vez.
+- Sem resposta em 2 minutos, o pedido é cancelado. `Esc` e **Parar** também cancelam.
+- Configurações › Privacidade › **Permissões** mostra o que vale além de uma vez, com **Revogar**.
+- No máximo 5 ferramentas por mensagem. O que uma ferramenta devolve é tratado como dado: nunca concede permissão nem dispara outra ferramenta.
+- Cada uso fica registrado no log (ferramenta, decisão e se deu certo), sem os argumentos.
+
+Na versão atual, as duas ferramentas disponíveis (hora e versão) não acessam nada do computador, então nenhuma pede permissão. O pedido de permissão é testado com ferramentas fictícias, que só existem em desenvolvimento com `CLIPSTER_DEV_TOOLS=1`.
+
+**Em desenvolvimento**, o modo Demo aceita comandos que simulam problemas, para ver as mensagens de erro sem gastar nada: `/simular erro 429` (também 401, 404, 402, 529, 400), `/simular timeout` (espera os 30 s do tempo-limite), `/simular offline`, `/simular queda` (cai no meio da resposta) e `/simular markdown` (resposta com link perigoso, imagem e HTML, para conferir que nada disso passa). Com `CLIPSTER_DEV_TOOLS=1` (no PowerShell: `$env:CLIPSTER_DEV_TOOLS=1; npm run dev`), também `/simular ferramenta apagar relatorio.docx` (pedido de uma ação que não dá para desfazer; nada é apagado), `/simular ferramenta ler Fotos` (leitura, com "nesta sessão" e "sempre") e `/simular ferramenta loop` (limite de 5 ferramentas). No app instalado, nada disso existe.
 
 ## Estados do personagem
 
@@ -115,6 +133,7 @@ npm run package:win   # Windows (rodar no Windows)
 - **Máquina de estados** (`src/shared/character`): função pura que decide a pose do personagem; roda no main com dois timers no máximo (transitório e inatividade).
 - **Conversa** (`src/main/ai`): o `AssistantService` guarda a conversa no main, monta o contexto (`ContextBuilder`), fala com o provider escolhido (Demo, compatível com OpenAI ou Anthropic) pela interface `AIProvider` e envia os pedaços da resposta ao balão. Toda chamada de rede acontece no main.
 - **Chaves de API** (`src/main/storage/secretStore.ts`): cifradas com o cofre do sistema (`safeStorage`); a tela só recebe "tem chave, termina em 1234".
+- **Ferramentas** (`src/main/tools`, `src/main/permissions`): registro, validação dos argumentos (Zod), permissões, execução com tempo-limite e auditoria, tudo no main. As descrições para a IA ficam com os outros prompts, em `src/shared/personalities/tools.ts`.
 - **Personalidades** (`src/shared/personalities`): único lugar com prompts e falas do personagem.
 - **Renderers** (`src/renderer`): o personagem (TypeScript puro, sem React por quadro; a arte é um pacote trocável em `assets/character/`), o balão (React, Markdown seguro) e as Configurações (React). Sem Node, sem acesso a arquivos, sem rede.
 - **Shared** (`src/shared`): esquemas Zod, i18n, contratos de IPC, constantes.
@@ -147,11 +166,11 @@ Servidores locais costumam demorar mais para a primeira palavra (o modelo é car
 
 ## Privacidade
 
-O Clipster não observa tela, teclado, área de transferência, arquivos ou outros programas, e não tem telemetria. Configurações, posição, logs e (se você ligar) o histórico ficam só no seu computador. Os logs nunca guardam o conteúdo das conversas. Detalhes em [`docs/privacy.md`](docs/privacy.md).
+O Clipster não observa tela, teclado, área de transferência, arquivos ou outros programas, e não tem telemetria. Ferramentas que acessem algo do computador sempre pedem permissão antes. Configurações, posição, logs e (se você ligar) o histórico ficam só no seu computador. Os logs nunca guardam o conteúdo das conversas. Detalhes em [`docs/privacy.md`](docs/privacy.md).
 
 ## Segurança
 
-Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lugar de `file://`, IPC com remetente e conteúdo validados, navegação e janelas novas bloqueadas, permissões web negadas, respostas em Markdown sem HTML e sem imagens remotas, e Electron Fuses no app empacotado. Detalhes em [`docs/security.md`](docs/security.md).
+Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lugar de `file://`, IPC com remetente e conteúdo validados, navegação e janelas novas bloqueadas, permissões web negadas, respostas em Markdown sem HTML e sem imagens remotas, ferramentas só no main (argumentos validados, permissão pedida com o texto da própria ferramenta) e Electron Fuses no app empacotado. Detalhes em [`docs/security.md`](docs/security.md).
 
 ## Limitações conhecidas
 
@@ -166,7 +185,7 @@ Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lug
 
 ## Roadmap
 
-Fases 5 e 6 em [`SPEC.md` §34](SPEC.md#34-roadmap). Próxima: **Fase 5 — ferramentas** (ações no computador, sempre com a sua permissão).
+Fase 6 em [`SPEC.md` §34](SPEC.md#34-roadmap): **polimento e entrega** (acessibilidade, medição de desempenho, vários monitores e DPI, instalador do Windows, roteiro de QA executado).
 
 ## Licença
 

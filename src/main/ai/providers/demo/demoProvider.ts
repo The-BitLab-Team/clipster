@@ -8,10 +8,12 @@ import {
   type ChatResponse,
   type ChatStreamEvent,
   type ConnectionStatus,
-  type ModelInfo
+  type ModelInfo,
+  type ToolCall
 } from '../../types';
-import { answerFor } from './repertoire';
-import { MARKDOWN_PROBE, parseSimulation } from './simulations';
+import { answerFor, contextFor, topicOf, type AnswerInput } from './repertoire';
+import { MARKDOWN_PROBE, parseSimulation, type Simulation } from './simulations';
+import { limitReachedAnswer, toolFollowUp } from './toolAnswers';
 
 /**
  * Provider de demonstração (SPEC §20.3). Disponível em desenvolvimento e no app instalado,
@@ -63,7 +65,7 @@ export function chunkText(text: string): string[] {
 
 export class DemoProvider implements AIProvider {
   readonly id = 'demo' as const;
-  readonly capabilities = { streaming: true, cancel: true, tools: false, listModels: true };
+  readonly capabilities = { streaming: true, cancel: true, tools: true, listModels: true };
   private readonly timing: DemoTiming;
 
   constructor(private readonly options: DemoProviderOptions) {
@@ -77,6 +79,35 @@ export class DemoProvider implements AIProvider {
     const simulation = this.options.allowSimulations ? parseSimulation(text) : null;
 
     await sleep(this.timing.thinkingMs, signal);
+
+    const answerInput: AnswerInput = {
+      text,
+      uiLocale: hints.uiLocale,
+      platform: hints.platform,
+      osName: osDisplayName(hints.platform),
+      personality: hints.personality,
+      now: hints.now,
+      timeZone: hints.timeZone
+    };
+
+    // Ferramentas (SPEC §20.3, §22): pede a ferramenta; na rodada seguinte, responde com o resultado.
+    const call = request.tools === undefined ? null : toolCallFor(request, simulation);
+    if (call !== null) {
+      yield { type: 'tool-call', call };
+      yield { type: 'done', stopReason: 'tool_use' };
+      return;
+    }
+    const lastRound = request.toolRounds?.at(-1);
+    if (lastRound !== undefined) {
+      const looping = simulation?.kind === 'tool' && simulation.tool === 'loop';
+      const context = contextFor(answerInput);
+      yield* this.speak(
+        looping ? limitReachedAnswer(context) : toolFollowUp(context, lastRound),
+        signal
+      );
+      yield { type: 'done', stopReason: 'end_turn' };
+      return;
+    }
 
     if (simulation?.kind === 'timeout') {
       // Nunca responde: quem encerra é o tempo-limite do AssistantService ou o Parar.
@@ -110,26 +141,22 @@ export class DemoProvider implements AIProvider {
                   ? 'Começando a responder, e então a conexão'
                   : 'Starting to answer, and then the connection'
             }
-          : answerFor({
-              text,
-              uiLocale: hints.uiLocale,
-              platform: hints.platform,
-              osName: osDisplayName(hints.platform),
-              personality: hints.personality,
-              now: hints.now,
-              timeZone: hints.timeZone
-            });
+          : answerFor(answerInput);
 
-    for (const chunk of chunkText(answer.text)) {
-      await sleep(this.timing.chunkMs, signal);
-      yield { type: 'text-delta', text: chunk };
-    }
+    yield* this.speak(answer.text, signal);
 
     if (simulation?.kind === 'drop') {
       yield { type: 'error', error: new ClipsterError('OFFLINE', 'Queda simulada no modo Demo.') };
       return;
     }
     yield { type: 'done', stopReason: 'end_turn' };
+  }
+
+  private async *speak(text: string, signal: AbortSignal): AsyncGenerator<ChatStreamEvent> {
+    for (const chunk of chunkText(text)) {
+      await sleep(this.timing.chunkMs, signal);
+      yield { type: 'text-delta', text: chunk };
+    }
   }
 
   generateResponse(request: ChatRequest): Promise<ChatResponse> {
@@ -143,4 +170,36 @@ export class DemoProvider implements AIProvider {
   testConnection(): Promise<ConnectionStatus> {
     return Promise.resolve({ status: 'connected', modelCount: 1 });
   }
+}
+
+/**
+ * Qual ferramenta o Demo pede nesta rodada, se alguma:
+ * - primeira rodada de "que horas são?" → `getCurrentTime`; "qual a sua versão?" → `getClipsterVersion`;
+ * - simulações de desenvolvimento → as ferramentas de teste (ou, em `loop`, `getCurrentTime`
+ *   de novo a cada rodada, até o limite tirar as ferramentas da requisição).
+ */
+function toolCallFor(request: ChatRequest, simulation: Simulation | null): ToolCall | null {
+  const round = request.toolRounds?.length ?? 0;
+  const id = `demo-call-${String(round + 1)}`;
+  if (simulation?.kind === 'tool') {
+    if (simulation.tool === 'loop') return { id, name: 'getCurrentTime', input: {} };
+    if (round > 0) return null;
+    return simulation.tool === 'demoDestructiveAction'
+      ? {
+          id,
+          name: simulation.tool,
+          input: { target: simulation.argument || 'relatorio-final.docx' }
+        }
+      : { id, name: simulation.tool, input: { folder: simulation.argument || 'Documentos' } };
+  }
+  if (round > 0) return null;
+  const question = request.messages.findLast((message) => message.role === 'user');
+  const topic = topicOf(question?.content ?? '');
+  const offered = (name: string) => request.tools?.some((tool) => tool.name === name) === true;
+  if (topic === 'time' && offered('getCurrentTime'))
+    return { id, name: 'getCurrentTime', input: {} };
+  if (topic === 'version' && offered('getClipsterVersion')) {
+    return { id, name: 'getClipsterVersion', input: {} };
+  }
+  return null;
 }

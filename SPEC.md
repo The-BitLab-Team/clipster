@@ -205,6 +205,8 @@ Opcional: `dragging`.
 | `NOTIFICATION` | `idle`/`sleeping` | `notification` | Volta a `idle` ao abrir/dispensar ou após ~30 s (fica um indicador discreto). |
 | `INACTIVITY_TIMEOUT` | `idle` | `sleeping` | Padrão 10 min (configurável: 5/10/30 min/nunca). |
 | `SUCCESS_FEEDBACK` | `idle` | `happy` → `idle` | Ex.: troca de personalidade, ferramenta concluída. ~1,5 s. |
+| `PERMISSION_REQUESTED` | `thinking`/`talking` (gerando) | `notification` | Uma ferramenta espera a permissão do usuário (§22). O aviso fica até a resposta: clique, digitação, arrasto e o timer transitório não o tiram. |
+| `PERMISSION_RESOLVED` | `notification` (esperando permissão) | `thinking` | Parar, erro ou fim da resposta também encerram o aviso. |
 | `DRAG_START` / `DRAG_END` | qualquer estado exceto `thinking`, `talking`, `error` | `dragging` → `idle` | Sem pose de `dragging` no pacote, usa o fallback. |
 | `PREVIEW` (só em desenvolvimento) | qualquer | estado pedido → `idle` após 4 s | Submenu "Pré-visualizar estado (dev)". Qualquer evento real descarta a prévia e é tratado a partir de `idle`. |
 
@@ -383,7 +385,7 @@ Janela própria com **moldura nativa** (mais simples e acessível), barra latera
 | **Privacidade** | Salvar histórico de conversas | **Desligado** | Ao desligar, perguntar se apaga o histórico existente. |
 | | Manter histórico por | 30 dias | 7 / 30 / 90 dias / sempre. Só aparece com histórico ligado. |
 | | Limpar histórico | — | Ação destrutiva: pede confirmação. |
-| | Permissões | — | Lista de permissões concedidas, cada uma com "Revogar" (§22). |
+| | Permissões | — | Lista de permissões concedidas ("nesta sessão" e "sempre"), cada uma com "Revogar" (§22). |
 | | O que o Clipster acessa | — | Texto curto explicando que nada é observado no MVP. |
 | **Sobre** | Versão (app, Electron, Chromium) | — | |
 | | Licença | "A definir" (D1) | |
@@ -622,7 +624,8 @@ Usar sempre `workArea` (exclui a barra de tarefas). Considerar coordenadas negat
 ```ts
 interface ConversationMessage {
   id: string;
-  role: 'user' | 'assistant';   // 'tool' entra na Fase 5
+  role: 'user' | 'assistant';
+  tools?: { id: string; tool: KnownToolName | null; status: 'awaiting' | 'running' | 'done' | 'denied' | 'failed'; prompt?: PermissionPrompt }[];
   content: string;
   createdAt: string;            // ISO 8601
   status: 'streaming' | 'complete' | 'interrupted' | 'error';
@@ -636,7 +639,8 @@ interface ChatRequest {
   model: string;
   temperature?: number;
   maxOutputTokens: number;      // padrão 1024: o balão é pequeno
-  tools?: ToolDefinition[];
+  tools?: ToolDefinition[];      // ausente = nenhuma (ex.: limite de chamadas atingido)
+  toolRounds?: ToolRound[];      // rodadas anteriores desta resposta: texto, chamadas, resultados
   signal: AbortSignal;
 }
 
@@ -644,7 +648,7 @@ type ChatStreamEvent =
   | { type: 'text-delta'; text: string }
   | { type: 'thinking' }          // raciocínio do modelo: há atividade, nada é exibido
   | { type: 'tool-call'; call: ToolCall }
-  | { type: 'done'; stopReason?: string; usage?: { inputTokens?: number; outputTokens?: number } }
+  | { type: 'done'; stopReason?: string; usage?: { inputTokens?: number; outputTokens?: number }; continuation?: unknown }
   | { type: 'error'; error: ClipsterError };
 
 interface ProviderCapabilities {
@@ -772,11 +776,21 @@ interface ClipsterTool<I, O> {
 - Ferramentas executam somente no main.
 - Auditoria local: nome da ferramenta, horário, decisão (permitida/negada) e sucesso. Argumentos sensíveis são omitidos.
 
+### 22.2a Como foi implementado (v0.5.0)
+
+- **Laço no `AssistantService`:** `tool-call` → `ToolExecutor` (nome conhecido → argumentos validados com Zod → permissão → execução com 10 s de limite → auditoria) → nova rodada do provider com `toolRounds`, até a resposta em texto. Tudo numa resposta só; a mensagem guarda `tools` (atividade) e o texto. O tempo da IA para enquanto as ferramentas rodam ou esperam o usuário.
+- **Limite:** a partir da 6ª chamada, recusa sem executar e a rodada seguinte vai sem ferramentas.
+- **Concessões por ferramenta** (`{ tool, permissions }`): "sempre" em `settings.json` (`permissions.grants`, só o main altera), "nesta sessão" na memória. Ao ler, o risco manda (nada guardado vale para ação destrutiva; "sempre" nunca vale para escrita).
+- **Pedido no balão,** como atividade da ferramenta (`status: 'awaiting'` + `prompt`) no `chat:event` e no snapshot da conversa; foco em Cancelar em todos os pedidos; `Esc` recusa; sem resposta em **2 min** = cancelar. O personagem mostra o aviso (§6.2).
+- **Textos:** `description` em `src/shared/personalities/tools.ts` (junto dos outros prompts); `describeAction` monta o `LocalizedString` pelo i18n. Argumentos mostrados no pedido não aceitam caracteres de controle nem de direção de texto.
+- **Auditoria:** `tool.audit` no log (ferramenta, decisão, sucesso, duração; nunca argumentos nem resultado).
+- **Providers:** Claude (`tool_use`/`tool_result`; o conteúdo do assistente, com blocos de raciocínio assinados, volta exatamente como veio), compatível com OpenAI (`tools`/`tool_calls`/`tool`; modelo sem suporte a ferramentas → nova tentativa sem elas), Demo ("que horas são?" e "qual a sua versão?").
+
 ### 22.3 Ferramentas do MVP
 
 - `getCurrentTime` — sem permissão, `read`.
 - `getClipsterVersion` — sem permissão, `read`.
-- **Somente dev/teste** (`CLIPSTER_DEV_TOOLS=1`): `demoDestructiveAction`, que não faz nada de real e existe só para testar o fluxo de confirmação.
+- **Somente dev/teste** (`CLIPSTER_DEV_TOOLS=1`, nunca no app instalado): `demoDestructiveAction`, que não faz nada de real e existe só para testar o fluxo de confirmação, e `demoReadAction` (leitura fictícia, para testar "nesta sessão", "sempre" e Revogar).
 
 Exemplos futuros (fora do MVP): `openApplication`, `createReminder`, `readClipboard`, `writeClipboard`, `openFile`, `searchFiles`.
 
@@ -1001,7 +1015,7 @@ Cada fase só termina quando seus critérios de saída passam.
 
 **MVP técnico** = Fases 0–3 + entrega da Fase 6 (empacotamento, docs, QA). **Primeiro release público** = MVP técnico + Fase 4 + decisões D1–D7.
 
-**Status em 24/10/2026:** Fases 0 a 4 concluídas (versão 0.4.0). Da Fase 4, "erros simulados mostram mensagens corretas" foi verificado com servidores simulados que seguem os protocolos da OpenAI e da Anthropic; a conversa com um provider local e um na nuvem de verdade depende da verificação manual do dono do produto (`docs/qa-checklist.md`). Próxima: Fase 5.
+**Status em 25/10/2026:** Fases 0 a 5 concluídas (versão 0.5.0). Da Fase 4, "erros simulados mostram mensagens corretas" foi verificado com servidores simulados que seguem os protocolos da OpenAI e da Anthropic; a conversa com um provider local e um na nuvem de verdade depende da verificação manual do dono do produto (`docs/qa-checklist.md`). Da Fase 5, o fluxo de permissão foi testado de ponta a ponta (unidade, integração e E2E, com o Demo, as ferramentas de teste e um servidor compatível com OpenAI simulado). Próxima: Fase 6.
 
 ---
 
@@ -1155,7 +1169,7 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `chat:send` | invoke | `{ text }` → `{ requestId }` |
 | `chat:cancel` | invoke | `{ requestId }` → `{ cancelled: boolean }` |
 | `chat:retry` | invoke | — → `{ requestId }` (refaz a última pergunta, sem duplicá-la) |
-| `chat:event` | event | `{ requestId, type: 'start' \| 'delta' \| 'done' \| 'error' \| 'cancelled', … }` ou `{ type: 'reset', conversation }` (`tool` na Fase 5) |
+| `chat:event` | event | `{ requestId, type: 'start' \| 'delta' \| 'done' \| 'error' \| 'cancelled', … }`, `{ type: 'tool', requestId, messageId, activity }` (ferramenta e, se for o caso, o pedido de permissão) ou `{ type: 'reset', conversation }` |
 | `chat:conversation:get` | invoke | — → `{ id, messages: ConversationMessage[], activeRequestId }` |
 | `chat:conversation:new` | invoke | — → mesma forma de `chat:conversation:get` |
 | `chat:history:clear` | invoke | `{ confirmed: true }` → `{ cleared: boolean }` (só a janela de Configurações) |
@@ -1177,9 +1191,10 @@ O repertório do Demo DEVE cobrir pelo menos: renomear arquivo, captura de tela,
 | `windows:settings:open` | invoke | `{ section? }` |
 | `windows:settings:navigate` | event | `SettingsSection` (Configurações já aberta muda de seção) |
 | `windows:hideClipster` | invoke | — |
-| `permissions:list` / `permissions:revoke` | invoke | — / `{ grantId }` |
-| `permissions:request` | event | `{ requestId, tool, action: LocalizedString, risk, scopes }` |
-| `permissions:respond` | invoke | `{ requestId, decision: 'deny' \| 'once' \| 'session' \| 'always' }` |
+| `permissions:list` / `permissions:revoke` | invoke | — → `{ id, tool, permissions, scope: 'session' \| 'always', grantedAt }[]` / `{ grantId }` → `{ revoked }` (só Configurações) |
+| `permissions:changed` | event | — (as Configurações recarregam a lista) |
+| `permissions:respond` | invoke | `{ requestId, decision: 'deny' \| 'once' \| 'session' \| 'always' }` → `{ accepted }` (só o balão; o main recusa escolhas que o risco não permite) |
+| ~~`permissions:request`~~ | — | Substituído pelo `chat:event` `tool` com `status: 'awaiting'` e `prompt: { id, action: LocalizedString, risk, scopes, permissions, expiresAt }` (aparece também no snapshot da conversa). |
 | `shell:openExternal` | invoke | `{ url }` → `{ opened: boolean }` (validado, §26) |
 | `onboarding:complete` | invoke | `{ personality, provider: 'none' \| 'demo' }` |
 | `app:info` | invoke | — → `{ version, electron, chrome, platform, license, repositoryUrl }` |

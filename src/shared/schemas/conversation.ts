@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { MAX_COPY_CHARS, MAX_USER_MESSAGE_CHARS } from '../constants/ai';
 import { isProviderConsoleUrl } from '../ai/urls';
 import { CLIPSTER_ERROR_CODES } from '../errors/codes';
+import { StoredToolActivitySchema } from './permissions';
+
+/** Uma resposta guarda no máximo isto de atividades de ferramenta. */
+const MAX_STORED_TOOL_ACTIVITIES = 50;
 import { AiProviderIdSchema, PersonalityIdSchema } from './settings';
 
 /**
@@ -57,7 +61,8 @@ export const StoredMessageSchema = z.object({
       supportCode: z.string().max(16).optional(),
       consoleUrl: z.string().refine(isProviderConsoleUrl).optional()
     })
-    .optional()
+    .optional(),
+  tools: z.array(StoredToolActivitySchema).max(MAX_STORED_TOOL_ACTIVITIES).optional()
 });
 
 export const StoredConversationSchema = z.object({

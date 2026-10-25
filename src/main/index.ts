@@ -53,6 +53,12 @@ function e2eAiTimeouts(): { firstTokenMs: number; totalMs: number } | null {
     : null;
 }
 
+/** Só em E2E: prazo curto para responder a um pedido de permissão, em ms. */
+function e2ePermissionTimeoutMs(): number | null {
+  const value = Number(process.env.CLIPSTER_E2E_PERMISSION_TIMEOUT_MS ?? '');
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
 /** Só em desenvolvimento (SPEC §21): chaves do `.env` na raiz do projeto, como reserva. */
 function devEnvKeys(): Partial<Record<SecretProvider, string>> {
   if (app.isPackaged || isE2E) return {};
@@ -148,7 +154,10 @@ async function main(): Promise<void> {
     demoTiming: isE2E ? e2eDemoTiming() : null,
     secrets,
     anthropicBaseUrl: isE2E ? (process.env.CLIPSTER_E2E_ANTHROPIC_BASE_URL ?? null) : null,
-    aiTimeoutsOverride: isE2E ? e2eAiTimeouts() : null
+    aiTimeoutsOverride: isE2E ? e2eAiTimeouts() : null,
+    // Ferramentas fictícias de teste (SPEC §22.3): nunca no app instalado, salvo nos testes E2E.
+    toolDevTools: (!app.isPackaged || isE2E) && process.env.CLIPSTER_DEV_TOOLS === '1',
+    permissionTimeoutMs: isE2E ? e2ePermissionTimeoutMs() : null
   });
 
   app.on('second-instance', () => {

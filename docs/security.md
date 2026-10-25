@@ -1,6 +1,6 @@
 # Segurança
 
-Situação de cada item da SPEC §26 na versão 0.4.0. Base: a checklist oficial de segurança do Electron.
+Situação de cada item da SPEC §26 na versão 0.5.0. Base: a checklist oficial de segurança do Electron.
 
 | # | Item | Situação | Onde |
 |---|------|----------|------|
@@ -35,3 +35,6 @@ Situação de cada item da SPEC §26 na versão 0.4.0. Base: a checklist oficial
 - **Rede só no main.** Os providers rodam no main; o renderer continua sem rede (CSP `connect-src 'none'` em produção). O SDK da Anthropic nunca é carregado no renderer (sem `dangerouslyAllowBrowser`) e recebe `apiKey`/`baseURL` explícitos, sem ler variáveis de ambiente.
 - **`.env`** só é lido em desenvolvimento (app não empacotado e fora de E2E) e está no `.gitignore`; `.env.example` não tem valores.
 - **Painel da conta.** O link do erro de cota vem do main e o esquema só aceita os dois endereços conhecidos (`platform.claude.com`, `platform.openai.com`); o `shell:openExternal` valida de novo.
+- **Ferramentas (SPEC §22).** Executam só no main. O nome pedido pelo modelo é procurado num `Map` (nada de propriedades herdadas), os argumentos passam pelo esquema Zod da ferramenta antes de qualquer outra coisa e o texto do pedido de permissão é gerado pela ferramenta a partir dos argumentos validados (sem caracteres de controle nem de direção de texto). O resultado volta ao modelo como dado (JSON) e nunca concede permissões: cada chamada passa de novo pela checagem. Máximo de 5 por mensagem.
+- **Permissões.** Só nascem de uma resposta a um pedido pendente (`permissions:respond`, só o balão); o main recusa escolhas que o risco não permite ("sempre" numa ação destrutiva, por exemplo). `settings:update` não altera `permissions`. Concessões lidas do arquivo valem só até onde o risco permite. Ver e revogar: só as Configurações. Testado em `tests/unit/permissions.test.ts`, `tests/integration/ipc.test.ts` e `tests/e2e/tools.spec.ts`.
+- **Ferramentas de teste** só existem com `CLIPSTER_DEV_TOOLS=1` fora do app instalado (verificado no AppImage: com a variável definida, elas não aparecem).

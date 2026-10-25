@@ -10,13 +10,17 @@ import { normalize } from './repertoire';
  *   /simular offline    ·  /simulate offline
  *   /simular queda      ·  /simulate drop      (cai no meio da resposta)
  *   /simular markdown   ·  /simulate markdown  (link perigoso, imagem e HTML: testa o Markdown seguro)
+ *   /simular ferramenta apagar <arquivo> · /simulate tool delete <file>   (ação destrutiva de teste)
+ *   /simular ferramenta ler <pasta>      · /simulate tool read <folder>   (leitura com permissão)
+ *   /simular ferramenta loop             · /simulate tool loop            (testa o limite de chamadas)
  */
 
 export type Simulation =
   | { kind: 'error'; code: ClipsterErrorCode; retryAfterSeconds?: number }
   | { kind: 'timeout' }
   | { kind: 'drop' }
-  | { kind: 'markdown' };
+  | { kind: 'markdown' }
+  | { kind: 'tool'; tool: 'demoDestructiveAction' | 'demoReadAction' | 'loop'; argument: string };
 
 /** Resposta "maliciosa" para provar que o balão não carrega imagens nem executa HTML (SPEC §8.4). */
 export const MARKDOWN_PROBE = [
@@ -47,7 +51,21 @@ const STATUS_TO_CODE: Readonly<Record<string, ClipsterErrorCode>> = {
 
 export const SIMULATED_RETRY_AFTER_SECONDS = 20;
 
+const TOOL_SIMULATION =
+  /^\/(?:simular|simulate)\s+(?:ferramenta|tool)\s+(apagar|delete|ler|read|loop)\b\s*(.*)$/i;
+
 export function parseSimulation(text: string): Simulation | null {
+  const tool = TOOL_SIMULATION.exec(text.trim());
+  if (tool !== null) {
+    const action = (tool[1] ?? '').toLowerCase();
+    const argument = (tool[2] ?? '').trim();
+    if (action === 'loop') return { kind: 'tool', tool: 'loop', argument };
+    return {
+      kind: 'tool',
+      tool: action === 'apagar' || action === 'delete' ? 'demoDestructiveAction' : 'demoReadAction',
+      argument
+    };
+  }
   const words = normalize(text).trim().split(' ');
   const [command, action, argument] = words;
   if (command !== '/simular' && command !== '/simulate') return null;

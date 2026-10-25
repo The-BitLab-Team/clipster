@@ -557,3 +557,31 @@ body {
 .connection[data-status='error'] {
   color: var(--clp-color-danger);
 }
+
+/* ── Permissões ── */
+
+.subsection-title--first {
+  margin-top: var(--clp-space-2);
+}
+
+.grants {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--clp-space-2);
+}
+
+.grant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--clp-space-3);
+  padding: var(--clp-space-2) 0;
+  border-top: 1px solid var(--clp-color-border);
+}
+
+.grant__text {
+  display: grid;
+  gap: 2px;
+}

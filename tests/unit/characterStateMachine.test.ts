@@ -41,6 +41,8 @@ const ALL_EVENTS: readonly CharacterEvent[] = [
   { type: 'DRAG_START' },
   { type: 'DRAG_END' },
   { type: 'TRANSIENT_ELAPSED' },
+  { type: 'PERMISSION_REQUESTED' },
+  { type: 'PERMISSION_RESOLVED' },
   ...CHARACTER_STATES.map((state): CharacterEvent => ({ type: 'PREVIEW', state }))
 ];
 
@@ -192,6 +194,49 @@ describe('transições da SPEC §6.2', () => {
   });
 });
 
+describe('pedido de permissão de ferramenta (SPEC §22)', () => {
+  it('pensando ou falando → aviso até a resposta; depois volta a pensar', () => {
+    for (const state of ['thinking', 'talking'] as const) {
+      const asked = transition(at(state, { generating: true }), { type: 'PERMISSION_REQUESTED' });
+      expect(asked).toMatchObject({
+        snapshot: { state: 'notification', context: { awaitingPermission: true } },
+        timer: { kind: 'cancel' }
+      });
+      // O aviso não some sozinho, nem com clique, digitação ou arrasto.
+      for (const event of [
+        { type: 'TRANSIENT_ELAPSED' },
+        { type: 'CLICK' },
+        { type: 'USER_TYPING' },
+        { type: 'DRAG_START' }
+      ] as const) {
+        expect(transition(asked.snapshot, event).snapshot.state).toBe('notification');
+      }
+      expect(run([{ type: 'PERMISSION_RESOLVED' }], asked.snapshot)).toMatchObject({
+        state: 'thinking',
+        context: { awaitingPermission: false }
+      });
+    }
+  });
+
+  it('Parar, erro ou fim da resposta durante o pedido encerram o aviso', () => {
+    const asked = run([{ type: 'MESSAGE_SENT' }, { type: 'PERMISSION_REQUESTED' }]);
+    expect(run([{ type: 'CANCELLED' }], asked)).toMatchObject({
+      state: 'idle',
+      context: { awaitingPermission: false, generating: false }
+    });
+    expect(run([{ type: 'AI_ERROR' }], asked).state).toBe('error');
+    expect(run([{ type: 'STREAM_DONE' }], asked).state).toBe('idle');
+  });
+
+  it('sem resposta em andamento, o pedido não muda a pose', () => {
+    expect(run([{ type: 'PERMISSION_REQUESTED' }]).state).toBe('idle');
+    expect(
+      run([{ type: 'PERMISSION_RESOLVED' }], at('notification', { notificationPending: true }))
+        .state
+    ).toBe('notification');
+  });
+});
+
 describe('prioridades', () => {
   const LOW_EVENTS: readonly CharacterEvent[] = [
     { type: 'USER_TYPING' },
@@ -268,7 +313,9 @@ describe('robustez', () => {
       'AI_ERROR',
       'NOTIFICATION',
       'INACTIVITY_TIMEOUT',
-      'TRANSIENT_ELAPSED'
+      'TRANSIENT_ELAPSED',
+      'PERMISSION_REQUESTED',
+      'PERMISSION_RESOLVED'
     ]);
     for (const event of ALL_EVENTS) {
       expect(transition(INITIAL_SNAPSHOT, event).userActivity).toBe(!system.has(event.type));

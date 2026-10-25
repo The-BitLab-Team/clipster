@@ -105,6 +105,28 @@ Estes itens só podem ser feitos com os serviços reais: os testes automáticos 
 - [ ] Configurações › IA navegável só pelo teclado, com foco visível; leitor de tela anuncia o resultado de "Testar conexão".
 - [ ] 125% e 150% de escala: os campos de endereço e chave cabem sem cortar texto.
 
+## Ferramentas e permissões (Fase 5)
+
+**Com qualquer IA (Demo serve):**
+
+- [ ] "Que horas são?" → acima da resposta aparece "✓ Consultou o relógio" e a hora está certa (fuso do Windows).
+- [ ] "Qual a sua versão?" → "✓ Consultou a versão do Clipster" e a versão bate com Configurações › Sobre.
+
+**Com IA de verdade (Ollama com um modelo que use ferramentas, como `llama3.2` ou `qwen2.5`; Claude; OpenAI):**
+
+- [ ] "Que horas são agora?" → o modelo usa a ferramenta (aparece o selo) e responde com a hora certa.
+- [ ] Um modelo do Ollama sem suporte a ferramentas (um que não tenha a etiqueta "tools" na biblioteca do Ollama) continua respondendo normalmente, sem erro.
+
+**Pedido de permissão** (em desenvolvimento, no PowerShell: `$env:CLIPSTER_DEV_TOOLS=1; npm run dev`, depois o Demo):
+
+- [ ] `/simular ferramenta apagar relatorio.docx` → o personagem mostra o "!"; o balão mostra o pedido com o nome do arquivo, "Não dá para desfazer", só **Cancelar** e **Permitir uma vez**, e o foco em Cancelar. Nada roubou o foco de outro programa.
+- [ ] Fechar o balão com o pedido aberto e clicar no personagem: o pedido continua lá.
+- [ ] Cancelar → "não permitido" e "Tudo bem, não fiz nada."; Permitir uma vez → segue (nada é apagado de verdade).
+- [ ] `/simular ferramenta ler Fotos` → aparecem também **Nesta sessão** e **Sempre**. "Sempre" → da próxima vez não pergunta; aparece em Configurações › Privacidade › Permissões; Revogar → volta a perguntar.
+- [ ] `Esc` com o pedido aberto recusa; **Parar** cancela; sem resposta por 2 minutos, cancela sozinho.
+- [ ] Narrador: o pedido é anunciado ao aparecer; Tab percorre os botões.
+- [ ] No app instalado, `/simular ferramenta …` não pede nada (as ferramentas de teste não existem).
+
 ## Arrasto e posição
 
 - [ ] Arrastar move o personagem suavemente, sem "pular".

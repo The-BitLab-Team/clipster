@@ -17,6 +17,7 @@ describe('API do preload (window.clipster)', () => {
       'diagnostics',
       'log',
       'onboarding',
+      'permissions',
       'settings',
       'shell',
       'windows'
@@ -67,6 +68,10 @@ describe('API do preload (window.clipster)', () => {
     await api.ai.clearKey('anthropic');
     await api.ai.listModels('openai-compatible');
     await api.ai.testConnection('anthropic');
+    await api.permissions.respond('p1', 'once');
+    await api.permissions.list();
+    await api.permissions.revoke('g1');
+    api.permissions.onChange(() => undefined);
 
     const known = new Set<string>(Object.values(IpcChannel));
     for (const call of [...ipc.invoked, ...ipc.sent]) expect(known.has(call.channel)).toBe(true);

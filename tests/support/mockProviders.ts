@@ -8,6 +8,11 @@ import type { AddressInfo } from 'node:net';
  *
  * O comportamento sai de marcadores na última mensagem do usuário, ex.: "[401]", "[529]",
  * "[stall]". Usados nos testes unitários e E2E; nunca fazem parte do app.
+ *
+ * Ferramentas: "[tool:getCurrentTime]" (ou "[tool:demoReadAction {\"folder\":\"Fotos\"}]") faz o
+ * servidor pedir a ferramenta, se ela foi oferecida; na continuação, responde
+ * "Resultado: <conteúdo>". Como as APIs reais, recusa continuações malformadas (resultado
+ * faltando; na Anthropic, bloco de raciocínio ausente com "[think-tool]").
  */
 
 export interface RecordedRequest {
@@ -65,6 +70,23 @@ function lastUserText(body: Record<string, unknown> | null): string {
     }
   }
   return '';
+}
+
+/** "[tool:nome]" ou "[tool:nome {json}]" na pergunta. */
+function toolMarker(text: string): { name: string; args: string } | null {
+  const match = /\[tool:(\w+)(?:\s+(\{[^\]]*\}))?\]/.exec(text);
+  if (match === null) return null;
+  return { name: match[1] ?? '', args: match[2] ?? '{}' };
+}
+
+type Json = Record<string, unknown>;
+
+function isRecord(value: unknown): value is Json {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function messagesOf(body: Json | null): Json[] {
+  return Array.isArray(body?.messages) ? (body.messages as unknown[]).filter(isRecord) : [];
 }
 
 function words(text: string): string[] {
@@ -184,6 +206,40 @@ export async function startOpenAiCompatibleMock(options: MockOptions = {}): Prom
         openAiError(400, "Unsupported parameter: 'temperature' is not supported with this model.");
         return;
       }
+      const offeredTools = Array.isArray(body?.tools)
+        ? (body.tools as unknown[]).filter(isRecord)
+        : [];
+      if (text.includes('[tools-unsupported]') && offeredTools.length > 0) {
+        openAiError(400, `registry.ollama.ai/library/${model} does not support tools`);
+        return;
+      }
+      if (offeredTools.some((tool) => tool.type !== 'function' || !isRecord(tool.function))) {
+        openAiError(400, 'Invalid tools: expected {type:"function", function:{...}}');
+        return;
+      }
+      // Como a OpenAI: cada tool_call do assistente precisa de uma mensagem "tool" com o mesmo id.
+      const messages = messagesOf(body);
+      for (const [position, message] of messages.entries()) {
+        if (message.role !== 'assistant' || !Array.isArray(message.tool_calls)) continue;
+        const answered = new Set(
+          messages
+            .slice(position + 1)
+            .filter((item) => item.role === 'tool')
+            .map((item) => item.tool_call_id)
+        );
+        const missing = (message.tool_calls as unknown[])
+          .filter(isRecord)
+          .some((call) => !answered.has(call.id));
+        if (missing) {
+          openAiError(
+            400,
+            "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'."
+          );
+          return;
+        }
+      }
+      const lastMessage = messages.at(-1);
+      const marker = toolMarker(text);
 
       response.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -211,7 +267,38 @@ export async function startOpenAiCompatibleMock(options: MockOptions = {}): Prom
         send(chunk({ reasoning: 'Hmm, deixe-me pensar.' }));
         await sleep(delay);
       }
-      const reply = `Olá do servidor local! Modelo: ${model}.`;
+      if (
+        marker !== null &&
+        lastMessage?.role !== 'tool' &&
+        offeredTools.some((tool) => isRecord(tool.function) && tool.function.name === marker.name)
+      ) {
+        // Argumentos em pedaços, como os servidores reais mandam.
+        const half = Math.floor(marker.args.length / 2);
+        send(
+          chunk({
+            tool_calls: [
+              {
+                index: 0,
+                id: 'call_mock1',
+                type: 'function',
+                function: { name: marker.name, arguments: '' }
+              }
+            ]
+          })
+        );
+        for (const part of [marker.args.slice(0, half), marker.args.slice(half)]) {
+          await sleep(delay);
+          send(chunk({ tool_calls: [{ index: 0, function: { arguments: part } }] }));
+        }
+        send(chunk({}, 'tool_calls'));
+        response.write('data: [DONE]\n\n');
+        response.end();
+        return;
+      }
+      const reply =
+        lastMessage?.role === 'tool' && typeof lastMessage.content === 'string'
+          ? `Resultado: ${lastMessage.content}`
+          : `Olá do servidor local! Modelo: ${model}.`;
       for (const [index, part] of words(reply).entries()) {
         await sleep(text.includes('[slow]') ? 150 : delay);
         if (response.destroyed) return;
@@ -341,6 +428,66 @@ export async function startAnthropicMock(options: MockOptions = {}): Promise<Moc
         return;
       }
 
+      const offeredTools = Array.isArray(body?.tools)
+        ? (body.tools as unknown[]).filter(isRecord)
+        : [];
+      if (
+        offeredTools.some(
+          (tool) =>
+            typeof tool.name !== 'string' ||
+            !isRecord(tool.input_schema) ||
+            tool.input_schema.type !== 'object'
+        )
+      ) {
+        apiError(400, 'invalid_request_error', 'tools.0.input_schema.type: Field required');
+        return;
+      }
+      // Como a API: tool_use pede tool_result logo em seguida; com raciocínio ("[think-tool]"),
+      // o conteúdo do assistente precisa voltar começando pelo bloco de raciocínio assinado.
+      const messages = messagesOf(body);
+      for (const [position, message] of messages.entries()) {
+        if (message.role !== 'assistant' || !Array.isArray(message.content)) continue;
+        const blocks = (message.content as unknown[]).filter(isRecord);
+        const uses = blocks.filter((block) => block.type === 'tool_use');
+        if (uses.length === 0) continue;
+        const next = messages[position + 1];
+        const results = Array.isArray(next?.content)
+          ? (next.content as unknown[])
+              .filter(isRecord)
+              .filter((block) => block.type === 'tool_result')
+          : [];
+        if (uses.some((use) => !results.some((result) => result.tool_use_id === use.id))) {
+          apiError(
+            400,
+            'invalid_request_error',
+            `messages.${String(position + 1)}: tool_use ids were found without tool_result blocks immediately after`
+          );
+          return;
+        }
+        if (
+          text.includes('[think-tool]') &&
+          (blocks[0]?.type !== 'thinking' || blocks[0].signature !== 'sig-mock')
+        ) {
+          apiError(
+            400,
+            'invalid_request_error',
+            `messages.${String(position)}.content.0.type: Expected \`thinking\` or \`redacted_thinking\`, but found \`${String(blocks[0]?.type)}\``
+          );
+          return;
+        }
+      }
+      const lastMessage = messages.at(-1);
+      const lastResults = Array.isArray(lastMessage?.content)
+        ? (lastMessage.content as unknown[])
+            .filter(isRecord)
+            .filter((block) => block.type === 'tool_result')
+        : [];
+      const marker = toolMarker(text);
+      const callTool =
+        marker !== null &&
+        lastResults.length === 0 &&
+        offeredTools.some((tool) => tool.name === marker.name);
+
       response.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -366,6 +513,51 @@ export async function startAnthropicMock(options: MockOptions = {}): Promise<Moc
         }
       });
       let index = 0;
+      if (callTool) {
+        if (text.includes('[think-tool]')) {
+          event('content_block_start', {
+            index,
+            content_block: { type: 'thinking', thinking: '', signature: '' }
+          });
+          event('content_block_delta', {
+            index,
+            delta: { type: 'thinking_delta', thinking: 'Preciso da ferramenta.' }
+          });
+          event('content_block_delta', {
+            index,
+            delta: { type: 'signature_delta', signature: 'sig-mock' }
+          });
+          event('content_block_stop', { index });
+          index += 1;
+        }
+        event('content_block_start', { index, content_block: { type: 'text', text: '' } });
+        event('content_block_delta', {
+          index,
+          delta: { type: 'text_delta', text: 'Vou verificar. ' }
+        });
+        event('content_block_stop', { index });
+        index += 1;
+        event('content_block_start', {
+          index,
+          content_block: { type: 'tool_use', id: 'toolu_mock1', name: marker.name, input: {} }
+        });
+        const half = Math.floor(marker.args.length / 2);
+        for (const part of [marker.args.slice(0, half), marker.args.slice(half)]) {
+          await sleep(delay);
+          event('content_block_delta', {
+            index,
+            delta: { type: 'input_json_delta', partial_json: part }
+          });
+        }
+        event('content_block_stop', { index });
+        event('message_delta', {
+          delta: { stop_reason: 'tool_use', stop_sequence: null },
+          usage: { output_tokens: 20 }
+        });
+        event('message_stop', {});
+        response.end();
+        return;
+      }
       if (text.includes('[think]')) {
         event('content_block_start', { index, content_block: { type: 'thinking', thinking: '' } });
         event('content_block_delta', {
@@ -377,7 +569,11 @@ export async function startAnthropicMock(options: MockOptions = {}): Promise<Moc
       }
       event('content_block_start', { index, content_block: { type: 'text', text: '' } });
       event('ping', {});
-      const reply = `Olá, aqui é o Claude simulado (${model}).`;
+      const firstResult = lastResults[0];
+      const reply =
+        firstResult !== undefined && typeof firstResult.content === 'string'
+          ? `Resultado: ${firstResult.content}`
+          : `Olá, aqui é o Claude simulado (${model}).`;
       for (const part of words(reply)) {
         await sleep(delay);
         if (response.destroyed) return;

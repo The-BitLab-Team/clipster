@@ -275,5 +275,55 @@ export const en = {
   'onboarding.ai.configure': 'Set up AI now',
   'onboarding.ai.later': 'Later',
   'onboarding.ai.permissions':
-    'Some future features will ask for your permission before accessing anything on your computer. You stay in control.'
+    'Some future features will ask for your permission before accessing anything on your computer. You stay in control.',
+
+  'tool.getCurrentTime.label': 'Checked the clock',
+  'tool.getClipsterVersion.label': 'Checked the Clipster version',
+  'tool.demoDestructiveAction.label': 'Test tool: delete a file',
+  'tool.demoDestructiveAction.action':
+    'Delete the file “{target}”. (Test tool: nothing is actually deleted.)',
+  'tool.demoReadAction.label': 'Test tool: list files',
+  'tool.demoReadAction.action':
+    'List the files in the folder “{folder}”. (Test tool: the list is made up.)',
+  'tool.unknown.label': 'Unknown tool',
+
+  'balloon.tools.label': 'Tools used in this answer',
+  'balloon.tool.running': '{tool}…',
+  'balloon.tool.done': '{tool}',
+  'balloon.tool.awaiting': '{tool}: waiting for your permission',
+  'balloon.tool.denied': '{tool}: not allowed',
+  'balloon.tool.failed': "{tool}: didn't work",
+
+  'balloon.permission.label': 'Permission request',
+  'balloon.permission.title': 'Clipster wants to do this:',
+  'balloon.permission.needs': 'Needs to: {permissions}.',
+  'balloon.permission.risk.read': 'Read only: nothing is changed.',
+  'balloon.permission.risk.write': 'This will change something on your computer.',
+  'balloon.permission.risk.destructive': "This can't be undone.",
+  'balloon.permission.cancel': 'Cancel',
+  'balloon.permission.once': 'Allow once',
+  'balloon.permission.session': 'This session',
+  'balloon.permission.always': 'Always',
+  'balloon.permission.timeout': "If there's no answer in {minutes} min, I'll cancel.",
+
+  'permission.clipboard.read': 'read the clipboard',
+  'permission.clipboard.write': 'write to the clipboard',
+  'permission.filesystem.read': 'read files',
+  'permission.filesystem.write': 'change or delete files',
+  'permission.applications.open': 'open apps',
+  'permission.notifications.send': 'show notifications',
+  'permission.screen.observe': 'see the screen',
+  'permission.network.fetch': 'access the internet',
+
+  'settings.privacy.permissions': 'Tool permissions',
+  'settings.privacy.permissions.hint':
+    "Tools that access something on your computer always ask first. Actions that can't be undone ask every time and never show up here.",
+  'settings.privacy.permissions.empty': 'No permissions granted.',
+  'settings.privacy.permissions.always': 'Always',
+  'settings.privacy.permissions.session': 'Until Clipster closes',
+  'settings.privacy.permissions.detail': '{permissions} · {scope} · since {date}',
+  'settings.privacy.permissions.revoke': 'Revoke',
+  'settings.privacy.permissions.revoked': 'Permission revoked.',
+  'settings.privacy.tools':
+    'Without asking, Clipster only checks the time and its own version when the AI needs them.'
 } satisfies Record<keyof typeof ptBR, string>;

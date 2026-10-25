@@ -7,6 +7,11 @@ import type {
   ModelListResult
 } from '../../shared/ai/providers';
 import { ProviderPayloadSchema, SecretSetPayloadSchema } from '../../shared/schemas/ai';
+import {
+  PermissionRespondPayloadSchema,
+  PermissionRevokePayloadSchema
+} from '../../shared/schemas/permissions';
+import type { PermissionDecision, PermissionGrantView } from '../../shared/tools/types';
 import { SecretError } from '../storage/secretStore';
 import type { AppCapabilities, AppInfo, OnboardingResult } from '../../shared/ipc/api';
 import { IpcChannel } from '../../shared/ipc/channels';
@@ -81,6 +86,11 @@ export interface IpcHandlerDeps {
     clearKey: (provider: KeyedProvider) => KeyStatus;
     listModels: (provider: KeyedProvider) => Promise<ModelListResult>;
     testConnection: (provider: KeyedProvider) => Promise<ConnectionResult>;
+  };
+  permissions: {
+    respond: (requestId: string, decision: PermissionDecision) => boolean;
+    list: () => PermissionGrantView[];
+    revoke: (grantId: string) => boolean;
   };
   clipboard: {
     writeText: (text: string) => Promise<void>;
@@ -238,6 +248,24 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
 
   registry.handle(IpcChannel.aiStatusGet, { schema: NoPayloadSchema, roles: UI_WINDOWS }, () =>
     deps.ai.status()
+  );
+
+  // Permissões das ferramentas (SPEC §22): responder só pelo balão, onde o pedido aparece;
+  // ver e revogar só pelas Configurações. Nenhum canal cria uma permissão sem pedido pendente.
+  registry.handle(
+    IpcChannel.permissionsRespond,
+    { schema: PermissionRespondPayloadSchema, roles: BALLOON_ONLY },
+    ({ requestId, decision }) => ({ accepted: deps.permissions.respond(requestId, decision) })
+  );
+  registry.handle(
+    IpcChannel.permissionsList,
+    { schema: NoPayloadSchema, roles: SETTINGS_ONLY },
+    () => deps.permissions.list()
+  );
+  registry.handle(
+    IpcChannel.permissionsRevoke,
+    { schema: PermissionRevokePayloadSchema, roles: SETTINGS_ONLY },
+    ({ grantId }) => ({ revoked: deps.permissions.revoke(grantId) })
   );
   registry.handle(
     IpcChannel.secretsStatus,

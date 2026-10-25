@@ -1,6 +1,6 @@
 # Arquitetura
 
-Visão do código como está na versão 0.4.0 (Fases 0 a 4). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
+Visão do código como está na versão 0.5.0 (Fases 0 a 5). A especificação completa está em [`SPEC.md`](../SPEC.md) §17–§19.
 
 ## Processos
 
@@ -11,7 +11,8 @@ Visão do código como está na versão 0.4.0 (Fases 0 a 4). A especificação c
 │   ├─ CharacterWindow + CharacterStateHost (máquina de estados, 2 timers)                   │
 │   ├─ BalloonWindow (pré-criada, segue o personagem, altura dinâmica)                       │
 │   ├─ AssistantService ─ ContextBuilder ─ PersonalityManager ─ ProviderRegistry             │
-│   │     └─ AIProvider: Demo · compatível com OpenAI (fetch + SSE) · Anthropic (SDK)       │
+│   │     ├─ AIProvider: Demo · compatível com OpenAI (fetch + SSE) · Anthropic (SDK)       │
+│   │     └─ ToolExecutor ─ ToolRegistry · PermissionManager (concessões, pedido, auditoria)│
 │   ├─ SecretStore (chaves cifradas com safeStorage em secrets.json)                         │
 │   ├─ HistoryStore (só com "Salvar histórico")                                              │
 │   ├─ SettingsWindowManager (sob demanda)                                                   │
@@ -33,6 +34,8 @@ Visão do código como está na versão 0.4.0 (Fases 0 a 4). A especificação c
 | `src/main/app` | `controller.ts` (orquestração), `protocol.ts`/`protocolPath.ts` (`app://`), `loginItem.ts`, `pages.ts`, `applicationMenu.ts`, `testHooks.ts` |
 | `src/main/character` | `characterStateHost.ts`: roda a máquina de estados com os timers |
 | `src/main/ai` | `assistantService.ts` (conversa, requisição única, tempos-limite, agrupamento de pedaços), `contextBuilder.ts`, `personalityManager.ts`, `errors.ts`, `types.ts` (`AIProvider`), `providerRegistry.ts` (escolhe o provider, prontidão, chaves, modelos, testar conexão), `providers/openaiCompatible.ts`, `providers/anthropic.ts`, `providers/shared.ts` (SSE, erros HTTP → §23), `providers/demo/` (repertório, simulações) |
+| `src/main/tools` | `registry.ts` (ferramentas desta execução, definições para o modelo), `executor.ts` (validação → permissão → execução com tempo-limite → auditoria), `types.ts` (`defineTool`, Zod → JSON Schema), `builtin/` (`getCurrentTime`, `getClipsterVersion`), `dev/` (ferramentas fictícias de teste) |
+| `src/main/permissions` | `permissionManager.ts`: escopos por risco, concessões "nesta sessão" (memória) e "sempre" (`settings.json`), pedido pendente com prazo, Revogar |
 | `src/main/windows` | `characterWindow.ts`, `balloonWindow.ts`, `settingsWindow.ts`, `placement.ts` e `balloonPlacement.ts` (funções puras de posição), `displays.ts`, `webPreferences.ts` |
 | `src/main/menus` | `menuFactory.ts` (descrição pura dos menus) e `electronMenu.ts` (conversão) |
 | `src/main/ipc` | `registry.ts` (validação central) e `handlers.ts` (canais do Apêndice C) |
@@ -113,6 +116,26 @@ O balão nunca recebe texto de erro do main, só o código (`ChatErrorInfo`); a 
 
 `settings:update` (só janelas de UI) → `SettingsStore.update` valida e grava (debounce, escrita atômica) → `onChange` → `AppController` aplica efeitos (sempre visível, escala, login item, menus) e transmite `settings:changed` às janelas. Mudanças só de posição não são transmitidas.
 
+### Ferramenta (SPEC §22)
+
+```
+Provider → tool-call { id, name, input }                       (input ainda não confiável)
+  → AssistantService: conta (máx. 5 por mensagem), para o relógio da IA
+  → ToolExecutor
+      → ToolRegistry.get(name)            nome desconhecido → erro para o modelo
+      → inputSchema (Zod)                 argumentos inválidos → erro para o modelo
+      → PermissionManager.request         sem permissões → segue; concedida antes → segue;
+          senão: chat:event tool { status: 'awaiting', prompt } → balão mostra o pedido
+                 personagem: PERMISSION_REQUESTED → aviso
+                 permissions:respond (balão) / 2 min sem resposta / Parar → decisão
+      → execute (10 s)                    → resultado em JSON, cortado em 8.000 caracteres
+      → log tool.audit                    (decisão e sucesso, sem argumentos)
+  → nova rodada do provider com toolRounds (resultado tratado como dado)
+  → texto final → done
+```
+
+O balão nunca decide nada: mostra o pedido e manda a escolha. O main confere se o pedido existe e se a escolha cabe no risco.
+
 ### Chave de API (SPEC §21)
 
 ```
@@ -152,6 +175,9 @@ Canais em `src/shared/ipc/channels.ts`, payloads em `payloads.ts` e `schemas/con
 | `secrets:set`, `secrets:clear`, `secrets:status`, `ai:models:list`, `ai:connection:test` | invoke | configurações |
 | `ai:status:get` | invoke | configurações e balão |
 | `ai:status` | evento main → balão e configurações | — |
+| `permissions:respond` | invoke | balão |
+| `permissions:list`, `permissions:revoke` | invoke | configurações |
+| `permissions:changed` | evento main → configurações | — |
 | `diagnostics:openLogs` | invoke | configurações |
 | `log:write` | send | todas |
 | `settings:changed`, `windows:settings:navigate` | evento main → renderer | — |

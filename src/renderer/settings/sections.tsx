@@ -14,6 +14,7 @@ import type {
   ThemePreference
 } from '../../shared/schemas/settings';
 import { Card, RangeField, SelectField, ToggleField } from './fields';
+import { PermissionsCard } from './PermissionsCard';
 
 export interface SectionProps {
   settings: Settings;
@@ -373,12 +374,14 @@ export function PrivacySection({ settings, t, save }: SectionProps) {
           </p>
         )}
       </Card>
+      <PermissionsCard t={t} />
       <Card>
         <ul className="checklist">
           <li>{t('settings.privacy.summary')}</li>
           <li>{t('settings.privacy.local')}</li>
           <li>{t('settings.privacy.noTelemetry')}</li>
           <li>{t('settings.privacy.demoOffline')}</li>
+          <li>{t('settings.privacy.tools')}</li>
         </ul>
       </Card>
     </>

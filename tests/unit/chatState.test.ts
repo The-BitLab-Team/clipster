@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  pendingPermission,
   addNotice,
   applyChatEvent,
   EMPTY_CHAT,
@@ -76,6 +77,52 @@ describe('estado da conversa no balão', () => {
     const empty = addNotice(EMPTY_CHAT, 'n0', 'acordei');
     const [only] = timeline(empty);
     expect(only?.kind === 'notice' && only.notice.id).toBe('n0');
+  });
+
+  it('eventos de ferramenta atualizam a atividade; o pedido pendente é encontrado', () => {
+    let state = fromSnapshot({
+      id: 'c1',
+      messages: [msg('u1', 'user', 'apague'), msg('a1', 'assistant', '', 'streaming')],
+      activeRequestId: 'r1'
+    });
+    const prompt = {
+      id: 'p1',
+      action: { 'pt-BR': 'Apagar “a.txt”.', en: 'Delete “a.txt”.' },
+      risk: 'destructive' as const,
+      scopes: ['once' as const],
+      permissions: ['filesystem.write' as const],
+      expiresAt: AT
+    };
+    expect(pendingPermission(state)).toBeNull();
+    state = applyChatEvent(state, {
+      type: 'tool',
+      requestId: 'r1',
+      messageId: 'a1',
+      activity: { id: 'c1', tool: 'demoDestructiveAction', status: 'awaiting', prompt }
+    });
+    expect(pendingPermission(state)).toEqual({
+      messageId: 'a1',
+      activity: { id: 'c1', tool: 'demoDestructiveAction', status: 'awaiting', prompt }
+    });
+    state = applyChatEvent(state, {
+      type: 'tool',
+      requestId: 'r1',
+      messageId: 'a1',
+      activity: { id: 'c1', tool: 'demoDestructiveAction', status: 'denied' }
+    });
+    expect(state.messages[1]?.tools).toEqual([
+      { id: 'c1', tool: 'demoDestructiveAction', status: 'denied' }
+    ]);
+    expect(pendingPermission(state)).toBeNull();
+    // Evento de mensagem desconhecida é ignorado.
+    expect(
+      applyChatEvent(state, {
+        type: 'tool',
+        requestId: 'r1',
+        messageId: 'x',
+        activity: { id: 'c2', tool: null, status: 'failed' }
+      })
+    ).toBe(state);
   });
 
   it('texto para leitor de tela sem símbolos de Markdown', () => {

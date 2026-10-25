@@ -22,7 +22,14 @@ type ByOs<T> = Readonly<Record<OsFamily, T>>;
 type ByLang<T> = Readonly<Record<Locale, T>>;
 
 export type TopicId =
-  'rename' | 'screenshot' | 'copyPaste' | 'time' | 'identity' | 'capabilities' | 'greeting';
+  | 'rename'
+  | 'screenshot'
+  | 'copyPaste'
+  | 'time'
+  | 'version'
+  | 'identity'
+  | 'capabilities'
+  | 'greeting';
 
 interface Topic {
   id: TopicId;
@@ -238,6 +245,34 @@ function byTone(context: DemoContext, texts: Readonly<Record<PersonalityId, ByLa
   return texts[context.personality][context.lang];
 }
 
+export interface Clock {
+  time: string;
+  date: string;
+  zone: string;
+}
+
+/** Resposta de "que horas são?" a partir de um relógio (o da ferramenta, quando houver). */
+export function timeAnswer(context: DemoContext, clock: Clock): string {
+  const { time, date, zone } = clock;
+  return byTone(context, {
+    helpful: {
+      'pt-BR': `Agora são **${time}** de ${date} (${zone}).`,
+      en: `It's **${time}** on ${date} (${zone}).`
+    },
+    witty: {
+      'pt-BR': `São **${time}** de ${date} (${zone}). Não que eu esteja contando.`,
+      en: `It's **${time}** on ${date} (${zone}). Not that I'm counting.`
+    }
+  });
+}
+
+export function byToneAndLang(
+  context: DemoContext,
+  texts: Readonly<Record<PersonalityId, ByLang<string>>>
+): string {
+  return byTone(context, texts);
+}
+
 function formatClock(context: DemoContext): { time: string; date: string } {
   const time = new Intl.DateTimeFormat(context.lang, {
     timeStyle: 'short',
@@ -322,20 +357,26 @@ const TOPICS: readonly Topic[] = [
       'pt-BR': ['que horas', 'que hora', 'horas sao', 'hora agora', 'horario agora'],
       en: ['what time', 'the time', 'time is it', 'current time']
     },
-    answer: (context) => {
-      const { time, date } = formatClock(context);
-      const zone = context.timeZone;
-      return byTone(context, {
-        helpful: {
-          'pt-BR': `Agora são **${time}** de ${date} (${zone}).`,
-          en: `It's **${time}** on ${date} (${zone}).`
-        },
-        witty: {
-          'pt-BR': `São **${time}** de ${date} (${zone}). Não que eu esteja contando.`,
-          en: `It's **${time}** on ${date} (${zone}). Not that I'm counting.`
-        }
-      });
-    }
+    // Sem ferramentas, o Demo usa o relógio do sistema; com elas, chama `getCurrentTime`.
+    answer: (context) => timeAnswer(context, { ...formatClock(context), zone: context.timeZone })
+  },
+  {
+    id: 'version',
+    keywords: {
+      'pt-BR': ['sua versao', 'qual versao', 'que versao', 'versao do clipster', 'qual a versao'],
+      en: [
+        'what version',
+        'which version',
+        'your version',
+        'clipster version',
+        'version of clipster'
+      ]
+    },
+    // Só sem ferramentas; com elas, o Demo chama `getClipsterVersion`.
+    answer: (context) =>
+      context.lang === 'pt-BR'
+        ? 'A versão aparece em **Configurações › Sobre**.'
+        : 'The version is shown in **Settings › About**.'
   },
   {
     id: 'identity',
@@ -426,18 +467,32 @@ export interface AnswerInput {
   timeZone: string;
 }
 
-/** Primeira resposta cujo tema casa com a pergunta; senão, o convite para configurar uma IA. */
-export function answerFor(input: AnswerInput): DemoAnswer {
-  const normalized = normalize(input.text);
-  const lang = detectLanguage(input.text, input.uiLocale);
-  const context: DemoContext = {
-    lang,
+export function contextFor(input: AnswerInput): DemoContext {
+  return {
+    lang: detectLanguage(input.text, input.uiLocale),
     os: osFamily(input.platform),
     osName: input.osName,
     personality: input.personality,
     now: input.now,
     timeZone: input.timeZone
   };
+}
+
+/** Tema da pergunta, ou `null` se nenhum casar. */
+export function topicOf(text: string): TopicId | null {
+  const normalized = normalize(text);
+  for (const topic of TOPICS) {
+    const all = [...topic.keywords['pt-BR'], ...topic.keywords.en];
+    if (all.some((keyword) => matches(normalized, keyword))) return topic.id;
+  }
+  return null;
+}
+
+/** Primeira resposta cujo tema casa com a pergunta; senão, o convite para configurar uma IA. */
+export function answerFor(input: AnswerInput): DemoAnswer {
+  const normalized = normalize(input.text);
+  const context = contextFor(input);
+  const { lang } = context;
   for (const topic of TOPICS) {
     const all = [...topic.keywords['pt-BR'], ...topic.keywords.en];
     if (all.some((keyword) => matches(normalized, keyword))) {

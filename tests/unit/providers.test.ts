@@ -15,7 +15,13 @@ import {
   readSse,
   sendsKeyInsecurely
 } from '../../src/main/ai/providers/shared';
-import type { AIProvider, ChatRequest, ChatStreamEvent } from '../../src/main/ai/types';
+import type {
+  AIProvider,
+  ChatRequest,
+  ChatStreamEvent,
+  ToolDefinition,
+  ToolRound
+} from '../../src/main/ai/types';
 import type { ConversationMessage } from '../../src/shared/ai/conversation';
 import {
   startAnthropicMock,
@@ -62,6 +68,47 @@ async function collect(stream: AsyncIterable<ChatStreamEvent>): Promise<ChatStre
   const events: ChatStreamEvent[] = [];
   for await (const event of stream) events.push(event);
   return events;
+}
+
+const TOOLS: ToolDefinition[] = [
+  {
+    name: 'getCurrentTime',
+    description: 'Data e hora.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'demoReadAction',
+    description: 'Lista uma pasta.',
+    inputSchema: {
+      type: 'object',
+      properties: { folder: { type: 'string' } },
+      required: ['folder'],
+      additionalProperties: false
+    }
+  }
+];
+
+/** Rodada 1 pede a ferramenta; a rodada 2 leva o resultado e a continuação do provider. */
+async function toolRoundTrip(provider: AIProvider, text: string, model: string) {
+  const first = await collect(provider.streamResponse({ ...request(text, model), tools: TOOLS }));
+  const calls = first.flatMap((event) => (event.type === 'tool-call' ? [event.call] : []));
+  const done = first.at(-1);
+  const continuation = done?.type === 'done' ? done.continuation : undefined;
+  const round: ToolRound = {
+    text: textOf(first),
+    calls,
+    results: calls.map((call) => ({
+      callId: call.id,
+      name: call.name,
+      content: '{"time":"08:38"}',
+      isError: false
+    })),
+    ...(continuation === undefined ? {} : { continuation })
+  };
+  const second = await collect(
+    provider.streamResponse({ ...request(text, model), tools: TOOLS, toolRounds: [round] })
+  );
+  return { first, calls, done, second };
 }
 
 const textOf = (events: ChatStreamEvent[]): string =>
@@ -286,6 +333,131 @@ describe('OpenAiCompatibleProvider (Ollama, LM Studio, OpenAI)', () => {
       status: 'error',
       code: 'NOT_COMPATIBLE'
     });
+  });
+});
+
+describe('ferramentas nos providers reais (SPEC §22)', () => {
+  let openai: MockServer;
+  let anthropic: MockServer;
+  const KEY = 'sk-ant-teste-1234567890';
+
+  beforeAll(async () => {
+    openai = await startOpenAiCompatibleMock({ chunkDelayMs: 1 });
+    anthropic = await startAnthropicMock({ chunkDelayMs: 1, apiKey: KEY });
+  });
+  afterAll(async () => {
+    await openai.close();
+    await anthropic.close();
+  });
+
+  it('compatível com OpenAI: tools no formato function, tool_calls em pedaços, continuação com role "tool"', async () => {
+    const provider = new OpenAiCompatibleProvider({ baseUrl: openai.url, apiKey: null });
+    const { calls, done, second } = await toolRoundTrip(
+      provider,
+      'liste [tool:demoReadAction {"folder":"Fotos"}]',
+      'llama3.2:3b'
+    );
+    expect(calls).toEqual([
+      { id: 'call_mock1', name: 'demoReadAction', input: { folder: 'Fotos' } }
+    ]);
+    expect(done).toEqual({ type: 'done', stopReason: 'tool_calls' });
+    expect(textOf(second)).toBe('Resultado: {"time":"08:38"}');
+
+    const firstBody = openai.requests.at(-2)?.body;
+    expect(firstBody?.tools).toEqual([
+      {
+        type: 'function',
+        function: {
+          name: 'getCurrentTime',
+          description: 'Data e hora.',
+          parameters: { type: 'object', properties: {} }
+        }
+      },
+      expect.objectContaining({ type: 'function' })
+    ]);
+    const messages = openai.requests.at(-1)?.body?.messages as Record<string, unknown>[];
+    expect(messages.slice(-2)).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call_mock1',
+            type: 'function',
+            function: { name: 'demoReadAction', arguments: '{"folder":"Fotos"}' }
+          }
+        ]
+      },
+      { role: 'tool', tool_call_id: 'call_mock1', content: '{"time":"08:38"}' }
+    ]);
+  });
+
+  it('compatível com OpenAI: modelo sem suporte a ferramentas → tenta de novo sem elas', async () => {
+    const provider = new OpenAiCompatibleProvider({ baseUrl: openai.url, apiKey: null });
+    const events = await collect(
+      provider.streamResponse({ ...request('[tools-unsupported] oi', 'llama3.2:3b'), tools: TOOLS })
+    );
+    expect(textOf(events)).toContain('Olá do servidor local!');
+    expect(openai.requests.at(-2)?.body).toHaveProperty('tools');
+    expect(openai.requests.at(-1)?.body).not.toHaveProperty('tools');
+  });
+
+  it('Anthropic: tool_use com JSON em pedaços; a continuação devolve o raciocínio assinado e o tool_result', async () => {
+    const provider = new AnthropicProvider({ apiKey: KEY, baseURL: anthropic.url });
+    const { first, calls, done, second } = await toolRoundTrip(
+      provider,
+      '[think-tool] [tool:getCurrentTime]',
+      'claude-teste-rapido'
+    );
+    expect(first[0]?.type).toBe('thinking');
+    expect(textOf(first)).toBe('Vou verificar. ');
+    expect(calls).toEqual([{ id: 'toolu_mock1', name: 'getCurrentTime', input: {} }]);
+    expect(done).toMatchObject({ type: 'done', stopReason: 'tool_use' });
+    expect(textOf(second)).toBe('Resultado: {"time":"08:38"}');
+
+    expect(anthropic.requests.at(-2)?.body?.tools).toEqual([
+      {
+        name: 'getCurrentTime',
+        description: 'Data e hora.',
+        input_schema: { type: 'object', properties: {} }
+      },
+      expect.objectContaining({ name: 'demoReadAction' })
+    ]);
+    const messages = anthropic.requests.at(-1)?.body?.messages as Record<string, unknown>[];
+    expect(messages.slice(-2)).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'Preciso da ferramenta.', signature: 'sig-mock' },
+          { type: 'text', text: 'Vou verificar. ' },
+          { type: 'tool_use', id: 'toolu_mock1', name: 'getCurrentTime', input: {} }
+        ]
+      },
+      {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'toolu_mock1', content: '{"time":"08:38"}' }]
+      }
+    ]);
+  });
+
+  it('Anthropic: sem a continuação (raciocínio perdido), a API recusaria; com ela, não', async () => {
+    const provider = new AnthropicProvider({ apiKey: KEY, baseURL: anthropic.url });
+    const base = {
+      ...request('[think-tool] [tool:getCurrentTime]', 'claude-teste-rapido'),
+      tools: TOOLS
+    };
+    const round: ToolRound = {
+      text: 'Vou verificar. ',
+      calls: [{ id: 'toolu_mock1', name: 'getCurrentTime', input: {} }],
+      results: [{ callId: 'toolu_mock1', name: 'getCurrentTime', content: '{}', isError: true }]
+    };
+    await expect(
+      collect(provider.streamResponse({ ...base, toolRounds: [round] }))
+    ).rejects.toMatchObject({ code: 'UNKNOWN' });
+    const sent = anthropic.requests.at(-1)?.body?.messages as { content: unknown }[];
+    expect(sent.at(-1)?.content).toEqual([
+      { type: 'tool_result', tool_use_id: 'toolu_mock1', content: '{}', is_error: true }
+    ]);
   });
 });
 

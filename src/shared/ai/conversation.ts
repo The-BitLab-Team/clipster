@@ -1,3 +1,4 @@
+import type { ToolActivity } from '../tools/types';
 import type { DisplayedErrorCode } from '../errors/codes';
 
 /**
@@ -33,6 +34,8 @@ export interface ConversationMessage {
   createdAt: string;
   status: MessageStatus;
   error?: ChatErrorInfo;
+  /** Ferramentas usadas nesta resposta, na ordem (SPEC §22). */
+  tools?: ToolActivity[];
 }
 
 export interface ConversationSnapshot {
@@ -48,6 +51,8 @@ export type ChatEvent =
   | { type: 'start'; requestId: string; messages: ConversationMessage[] }
   /** Pedaço de texto da resposta, agrupado a cada ~40 ms. */
   | { type: 'delta'; requestId: string; messageId: string; text: string }
+  /** Ferramenta chamada ou mudou de situação (inclui o pedido de permissão, quando há). */
+  | { type: 'tool'; requestId: string; messageId: string; activity: ToolActivity }
   | { type: 'done'; requestId: string; message: ConversationMessage }
   | { type: 'cancelled'; requestId: string; message: ConversationMessage }
   | { type: 'error'; requestId: string; message: ConversationMessage }

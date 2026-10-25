@@ -7,6 +7,7 @@ import {
   type Settings,
   type SettingsPatch
 } from '../../shared/schemas/settings';
+import type { StoredGrant } from '../../shared/schemas/permissions';
 import { SETTINGS_WRITE_DEBOUNCE_MS } from '../../shared/constants/ui';
 import type { Logger } from '../logging/logger';
 import { writeFileAtomic, writeFileAtomicSync } from './atomicWrite';
@@ -137,6 +138,11 @@ export class SettingsStore {
 
   setHideTipShown(value: boolean): Settings {
     return this.commit({ ...this.current, hideTipShown: value });
+  }
+
+  /** Permissões "sempre" das ferramentas: só o PermissionManager chama (SPEC §22). */
+  setPermissionGrants(grants: StoredGrant[]): Settings {
+    return this.commit({ ...this.current, permissions: { grants } });
   }
 
   /** Fim da primeira execução (SPEC §9): grava a escolha do onboarding de uma vez. */

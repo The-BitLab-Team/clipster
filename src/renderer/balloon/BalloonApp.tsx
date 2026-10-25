@@ -7,6 +7,7 @@ import {
   type CSSProperties
 } from 'react';
 import type { ChatErrorInfo } from '../../shared/ai/conversation';
+import type { PermissionDecision } from '../../shared/tools/types';
 import type { AiStatus } from '../../shared/ai/providers';
 import type { ErrorAction } from '../../shared/errors/codes';
 import { errorMessage } from '../../shared/errors/messages';
@@ -27,7 +28,7 @@ import {
   updateSettings
 } from '../lib/settingsClient';
 import { getSnapshot, pushNotice, replaceChat, subscribe, type ChatSnapshot } from './chatClient';
-import { fromSnapshot, plainText, timeline } from './chatState';
+import { fromSnapshot, pendingPermission, plainText, timeline } from './chatState';
 import { Composer, NoProvider } from './Composer';
 import { Conversation } from './Conversation';
 import { Header } from './Header';
@@ -241,11 +242,19 @@ export function BalloonApp() {
     }
   };
 
-  // Esc: pula o onboarding, para a geração ou fecha o balão (SPEC §8.3, §9).
+  const respondPermission = (requestId: string, decision: PermissionDecision): void => {
+    void window.clipster.permissions.respond(requestId, decision);
+  };
+  const pending = pendingPermission(chat.chat);
+
+  // Esc: pula o onboarding, recusa um pedido de permissão, para a geração ou fecha o balão
+  // (SPEC §8.3, §9, §22).
   const escape = useRef<() => void>(close);
   useEffect(() => {
     escape.current = () => {
-      if (onboarding) {
+      if (pending !== null) {
+        respondPermission(pending.activity.prompt.id, 'deny');
+      } else if (onboarding) {
         finishOnboarding({ provider: provider === 'demo' ? 'demo' : 'none', configure: false });
       } else if (generating) {
         stop();
@@ -347,10 +356,12 @@ export function BalloonApp() {
           <>
             <Conversation
               t={t}
+              locale={locale}
               items={items}
               personality={personality}
               empty={empty}
               onErrorAction={onErrorAction}
+              onPermission={respondPermission}
             />
             {sendError !== null && (
               <p className="send-error" role="alert">

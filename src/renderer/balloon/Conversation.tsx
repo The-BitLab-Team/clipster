@@ -2,34 +2,48 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import type { ChatErrorInfo, ConversationMessage } from '../../shared/ai/conversation';
 import type { ErrorAction } from '../../shared/errors/codes';
 import { errorActions, errorMessage, showsSupportCode } from '../../shared/errors/messages';
-import type { Translator } from '../../shared/i18n';
+import type { Locale, Translator } from '../../shared/i18n';
+import type { PermissionDecision } from '../../shared/tools/types';
 import type { PersonalityId } from '../../shared/schemas/settings';
 import type { TimelineItem } from './chatState';
 import { CopyButton, Markdown } from './Markdown';
+import { PermissionCard, ToolActivityList } from './Tools';
 
 /** Lista de mensagens do balão (SPEC §8.1): usuário × Clipster, avisos e erros com ações. */
 
 interface ConversationProps {
   t: Translator;
+  locale: Locale;
   items: TimelineItem[];
   personality: PersonalityId;
   /** Conteúdo para a conversa vazia (saudação, sugestões). */
   empty: ReactNode;
   onErrorAction: (action: ErrorAction, error: ChatErrorInfo) => void;
+  onPermission: (requestId: string, decision: PermissionDecision) => void;
 }
 
-export function Conversation({ t, items, personality, empty, onErrorAction }: ConversationProps) {
+export function Conversation({
+  t,
+  locale,
+  items,
+  personality,
+  empty,
+  onErrorAction,
+  onPermission
+}: ConversationProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const last = items.at(-1);
   const lastLength = last?.kind === 'message' ? last.message.content.length : 0;
   const lastStatus = last?.kind === 'message' ? last.message.status : 'notice';
+  const lastTools =
+    last?.kind === 'message' ? (last.message.tools ?? []).map((tool) => tool.status).join() : '';
 
   // Acompanha a resposta enquanto ela é escrita, a não ser que o usuário tenha rolado para cima.
   useLayoutEffect(() => {
     const list = listRef.current;
     if (list !== null && stickToBottom.current) list.scrollTop = list.scrollHeight;
-  }, [items.length, lastLength, lastStatus]);
+  }, [items.length, lastLength, lastStatus, lastTools]);
 
   return (
     <div
@@ -55,9 +69,11 @@ export function Conversation({ t, items, personality, empty, onErrorAction }: Co
               <MessageView
                 key={item.message.id}
                 t={t}
+                locale={locale}
                 message={item.message}
                 personality={personality}
                 onErrorAction={onErrorAction}
+                onPermission={onPermission}
               />
             )
           )}
@@ -67,12 +83,21 @@ export function Conversation({ t, items, personality, empty, onErrorAction }: Co
 
 interface MessageViewProps {
   t: Translator;
+  locale: Locale;
   message: ConversationMessage;
   personality: PersonalityId;
   onErrorAction: (action: ErrorAction, error: ChatErrorInfo) => void;
+  onPermission: (requestId: string, decision: PermissionDecision) => void;
 }
 
-function MessageView({ t, message, personality, onErrorAction }: MessageViewProps) {
+function MessageView({
+  t,
+  locale,
+  message,
+  personality,
+  onErrorAction,
+  onPermission
+}: MessageViewProps) {
   if (message.role === 'user') {
     return (
       <div className="msg msg--user" data-testid="message-user">
@@ -83,9 +108,23 @@ function MessageView({ t, message, personality, onErrorAction }: MessageViewProp
   }
 
   const hasText = message.content.trim().length > 0;
-  const thinking = message.status === 'streaming' && !hasText;
+  const tools = message.tools ?? [];
+  const awaiting = tools.find((tool) => tool.status === 'awaiting' && tool.prompt !== undefined);
+  const thinking = message.status === 'streaming' && !hasText && awaiting === undefined;
   return (
     <div className="msg msg--clipster" data-testid="message-clipster" data-status={message.status}>
+      {/* Enquanto o pedido de permissão aparece, ele mesmo representa a ferramenta. */}
+      <ToolActivityList t={t} tools={tools.filter((tool) => tool !== awaiting)} />
+      {awaiting?.prompt !== undefined && (
+        <PermissionCard
+          t={t}
+          locale={locale}
+          prompt={awaiting.prompt}
+          onRespond={(decision) => {
+            if (awaiting.prompt !== undefined) onPermission(awaiting.prompt.id, decision);
+          }}
+        />
+      )}
       {thinking && (
         <p className="thinking">
           <span className="thinking__dots" aria-hidden="true">

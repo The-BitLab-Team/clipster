@@ -7,13 +7,16 @@ import {
   type ChatResponse,
   type ChatStreamEvent,
   type ConnectionStatus,
-  type ModelInfo
+  type ModelInfo,
+  type ToolCall,
+  type ToolRound
 } from '../types';
 import {
   fetchFailureToError,
   httpFailureToError,
   isAbortError,
   normalizeTurns,
+  parseToolInput,
   readSse
 } from './shared';
 import { isLocalUrl, PROVIDER_CONSOLES } from '../../../shared/ai/urls';
@@ -27,7 +30,9 @@ import { isLocalUrl, PROVIDER_CONSOLES } from '../../../shared/ai/urls';
  * - api.openai.com: `max_completion_tokens` e sem `temperature` (os modelos de raciocínio
  *   recusam `max_tokens` e `temperature`);
  * - outros servidores: `max_tokens` e `temperature`;
- * - se o servidor recusar um desses parâmetros (400), tenta de novo uma vez sem ele.
+ * - se o servidor recusar um desses parâmetros (400), tenta de novo uma vez sem ele;
+ * - ferramentas (SPEC §22) como `tools`/`tool_calls`; modelo local sem suporte a ferramentas
+ *   (o Ollama responde 400 "does not support tools") → tenta de novo sem elas.
  */
 
 export interface OpenAiCompatibleOptions {
@@ -39,15 +44,66 @@ export interface OpenAiCompatibleOptions {
 /** Modelos locais podem levar mais de 30 s para carregar na primeira pergunta. */
 export const LOCAL_SERVER_TIMEOUTS: AiTimeouts = { firstTokenMs: 90_000, totalMs: 300_000 };
 
+const TOOLS_UNSUPPORTED =
+  /does not support tools|tools? (?:are|is) not supported|tool[_ ]?(?:use|calling|calls|choice)[^.]*not supported|(?:unsupported|unrecognized|unknown)[^.]*\btools\b/i;
+
 const UNSUPPORTED_PARAM =
   /(unsupported|not supported|unrecognized|unknown|invalid)[^.]*\b(temperature|max_tokens)\b|\b(temperature|max_tokens)\b[^.]*(unsupported|not supported|not allowed|deprecated)/i;
 
 interface ChatChunk {
   choices?: {
-    delta?: { content?: unknown; reasoning?: unknown; reasoning_content?: unknown };
+    delta?: {
+      content?: unknown;
+      reasoning?: unknown;
+      reasoning_content?: unknown;
+      tool_calls?: unknown;
+    };
     finish_reason?: unknown;
   }[];
   error?: unknown;
+}
+
+/** Chamada de ferramenta chegando em pedaços (`delta.tool_calls[i]`). */
+interface PartialCall {
+  id: string;
+  name: string;
+  args: string;
+}
+
+function collectToolCallDeltas(value: unknown, calls: Map<number, PartialCall>): void {
+  if (!Array.isArray(value)) return;
+  for (const item of value as unknown[]) {
+    if (typeof item !== 'object' || item === null) continue;
+    const index = 'index' in item && typeof item.index === 'number' ? item.index : calls.size;
+    const current = calls.get(index) ?? { id: '', name: '', args: '' };
+    if ('id' in item && typeof item.id === 'string' && item.id !== '') current.id = item.id;
+    const fn = 'function' in item ? item.function : undefined;
+    if (typeof fn === 'object' && fn !== null) {
+      if ('name' in fn && typeof fn.name === 'string') current.name += fn.name;
+      if ('arguments' in fn && typeof fn.arguments === 'string') current.args += fn.arguments;
+    }
+    calls.set(index, current);
+  }
+}
+
+/** Uma rodada de ferramentas no formato Chat Completions. */
+function roundMessages(round: ToolRound): Record<string, unknown>[] {
+  return [
+    {
+      role: 'assistant',
+      content: round.text,
+      tool_calls: round.calls.map((call) => ({
+        id: call.id,
+        type: 'function',
+        function: { name: call.name, arguments: JSON.stringify(call.input ?? {}) }
+      }))
+    },
+    ...round.results.map((result) => ({
+      role: 'tool',
+      tool_call_id: result.callId,
+      content: result.content
+    }))
+  ];
 }
 
 function isOpenAiHost(baseUrl: string): boolean {
@@ -60,7 +116,7 @@ function isOpenAiHost(baseUrl: string): boolean {
 
 export class OpenAiCompatibleProvider implements AIProvider {
   readonly id = 'openai-compatible' as const;
-  readonly capabilities = { streaming: true, cancel: true, tools: false, listModels: true };
+  readonly capabilities = { streaming: true, cancel: true, tools: true, listModels: true };
   readonly timeouts?: AiTimeouts;
   readonly consoleUrl?: string;
   private readonly fetch: typeof fetch;
@@ -79,28 +135,52 @@ export class OpenAiCompatibleProvider implements AIProvider {
     let tokenField: 'max_tokens' | 'max_completion_tokens' = official
       ? 'max_completion_tokens'
       : 'max_tokens';
+    let sendTools = request.tools !== undefined && request.tools.length > 0;
     const body = (): Record<string, unknown> => ({
       model: request.model,
       stream: true,
-      messages: [{ role: 'system', content: request.system }, ...normalizeTurns(request.messages)],
+      messages: [
+        { role: 'system', content: request.system },
+        ...normalizeTurns(request.messages),
+        ...(request.toolRounds ?? []).flatMap(roundMessages)
+      ],
       [tokenField]: request.maxOutputTokens,
-      ...(sendTemperature ? { temperature: request.temperature } : {})
+      ...(sendTemperature ? { temperature: request.temperature } : {}),
+      ...(sendTools && request.tools !== undefined
+        ? {
+            tools: request.tools.map((tool) => ({
+              type: 'function',
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.inputSchema
+              }
+            }))
+          }
+        : {})
     });
 
     let response = await this.post('chat/completions', body(), request.signal);
-    if (response.status === 400) {
+    // Servidor recusou algo opcional (temperatura, nome do limite de tokens, ferramentas):
+    // tenta sem isso. No máximo duas novas tentativas.
+    for (let attempt = 0; attempt < 2 && response.status === 400; attempt += 1) {
       const text = await response.text();
-      const match = UNSUPPORTED_PARAM.exec(text);
-      if (match === null) throw this.httpError(response, text);
-      // Servidor recusou um parâmetro opcional: tenta uma vez sem ele (ou com o outro nome).
-      if (/temperature/i.test(match[0])) sendTemperature = false;
-      if (/max_tokens/i.test(match[0])) tokenField = 'max_completion_tokens';
+      const param = UNSUPPORTED_PARAM.exec(text);
+      if (sendTools && TOOLS_UNSUPPORTED.test(text)) {
+        sendTools = false;
+      } else if (param !== null) {
+        if (/temperature/i.test(param[0])) sendTemperature = false;
+        if (/max_tokens/i.test(param[0])) tokenField = 'max_completion_tokens';
+      } else {
+        throw this.httpError(response, text);
+      }
       response = await this.post('chat/completions', body(), request.signal);
     }
     if (!response.ok) throw this.httpError(response, await response.text());
     if (response.body === null) throw new ClipsterError('UNKNOWN', 'Resposta sem corpo.');
 
     let stopReason: string | undefined;
+    const toolCalls = new Map<number, PartialCall>();
     try {
       for await (const message of readSse(response.body)) {
         if (message.data === '[DONE]') break;
@@ -127,6 +207,7 @@ export class OpenAiCompatibleProvider implements AIProvider {
         ) {
           yield { type: 'thinking' };
         }
+        collectToolCallDeltas(delta?.tool_calls, toolCalls);
         if (typeof choice?.finish_reason === 'string') stopReason = choice.finish_reason;
       }
     } catch (error) {
@@ -136,6 +217,16 @@ export class OpenAiCompatibleProvider implements AIProvider {
       throw mapped instanceof ClipsterError
         ? mapped
         : new ClipsterError('OFFLINE', 'A conexão caiu no meio da resposta.', { cause: error });
+    }
+    const ordered = [...toolCalls.entries()].sort(([a], [b]) => a - b);
+    for (const [index, partial] of ordered) {
+      if (partial.name === '') continue;
+      const call: ToolCall = {
+        id: partial.id === '' ? `call_${String(index)}` : partial.id,
+        name: partial.name,
+        input: parseToolInput(partial.args)
+      };
+      yield { type: 'tool-call', call };
     }
     yield stopReason === undefined ? { type: 'done' } : { type: 'done', stopReason };
   }

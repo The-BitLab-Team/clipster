@@ -2,7 +2,7 @@
 
 Legenda: **Testado** = verificado de fato · **Deve funcionar** = implementado, mas não verificado nessa plataforma · **Não testado** = sem verificação nem expectativa firme · **N/A** = não se aplica.
 
-Atualizado em 24/10/2026 (versão 0.4.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
+Atualizado em 25/10/2026 (versão 0.5.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
 
 ## Por recurso
 
@@ -36,6 +36,8 @@ Atualizado em 24/10/2026 (versão 0.4.0). Até aqui, os testes rodaram apenas nu
 | IA local compatível com OpenAI (Ollama, LM Studio) | Deve funcionar | Deve funcionar | **Testado** com servidor simulado (E2E); Ollama/LM Studio reais não testados | Não testado |
 | Claude (Anthropic) e OpenAI | Deve funcionar | Deve funcionar | **Testado** com servidores simulados (SDK oficial no caso do Claude); serviços reais não testados | Não testado |
 | Mensagens de erro da §23 com provider real (401, 402, 429, 529, 400, offline, tempo-limite) | Deve funcionar | Deve funcionar | **Testado** (E2E com servidores simulados) | Não testado |
+| Ferramentas (hora, versão) e pedido de permissão no balão | Deve funcionar | Deve funcionar | **Testado** (E2E com o Demo e ferramentas de teste; servidor compatível com OpenAI simulado) | Não testado |
+| Ferramentas com Ollama, Claude e OpenAI de verdade | Deve funcionar | Deve funcionar | Não testado (testado só com servidores simulados e o SDK oficial) | Não testado |
 | Chave de API cifrada (`safeStorage`) | Deve funcionar (DPAPI) | Deve funcionar (Keychain) | **Testado** só sem keyring (`basic_text`, com a confirmação); com gnome-libsecret/kwallet não testado | Não testado |
 | Zero requisições de rede (ao abrir e conversando no Demo) | Deve funcionar | Deve funcionar | **Testado** (E2E + log de rede) | Não testado |
 | Iniciar com o sistema | Deve funcionar (só instalado) | Deve funcionar (só instalado) | N/A no MVP | N/A no MVP |
@@ -57,4 +59,5 @@ Atualizado em 24/10/2026 (versão 0.4.0). Até aqui, os testes rodaram apenas nu
 - Fase 3: a suíte E2E inteira (26 testes) passou 3 vezes seguidas (78/78), sem tentativas extras.
 - Fase 4: a suíte E2E inteira (32 testes) passou 3 vezes seguidas (96/96), sem tentativas extras. O AppImage 0.4.0 foi gerado e iniciado (personagem na tela, SDK da Anthropic incluído no pacote).
 - Este ambiente não alcança Ollama, LM Studio, Anthropic nem OpenAI de verdade: a conversa real com cada um está no roteiro manual.
+- Fase 5: a suíte E2E inteira (38 testes) passou 3 vezes seguidas (114/114), sem tentativas extras. O AppImage 0.5.0 foi gerado e iniciado; com `CLIPSTER_DEV_TOOLS=1`, as ferramentas de teste não foram registradas no app empacotado.
 - Uma execução da suíte E2E falhou uma vez, no teste de arrasto, enquanto havia processos do Electron de execuções manuais ainda abertos no contêiner. Em seguida, passou 12/12 isolado e 28/28 com a suíte inteira repetida 4 vezes. O CI tenta de novo uma vez automaticamente.

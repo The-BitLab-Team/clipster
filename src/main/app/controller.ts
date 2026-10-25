@@ -47,7 +47,10 @@ import {
   type MenuState
 } from '../menus/menuFactory';
 import { isTrustedRendererUrl } from '../security/urls';
+import { PermissionManager } from '../permissions/permissionManager';
 import { HistoryStore } from '../storage/historyStore';
+import { ToolExecutor } from '../tools/executor';
+import { createToolRegistry } from '../tools/registry';
 import type { SecretStore } from '../storage/secretStore';
 import type { SettingsStore } from '../storage/settingsStore';
 import { TrayController } from '../tray/trayController';
@@ -90,6 +93,10 @@ export interface AppControllerOptions {
   anthropicBaseUrl: string | null;
   /** Só para E2E: tempos-limite curtos, acima dos de cada provider. */
   aiTimeoutsOverride: AiTimeouts | null;
+  /** Ferramentas fictícias de teste (SPEC §22.3): `CLIPSTER_DEV_TOOLS=1`, fora do app instalado. */
+  toolDevTools: boolean;
+  /** Só para E2E: prazo curto para responder a um pedido de permissão, em ms. */
+  permissionTimeoutMs: number | null;
 }
 
 export class AppController {
@@ -109,6 +116,7 @@ export class AppController {
   private readonly demo: DemoProvider;
   private readonly providers: ProviderRegistry;
   private readonly assistant: AssistantService;
+  private readonly permissions: PermissionManager;
   private lastAiStatus: string | null = null;
 
   constructor(private readonly options: AppControllerOptions) {
@@ -146,7 +154,38 @@ export class AppController {
       anthropicBaseUrl: options.anthropicBaseUrl
     });
 
+    this.permissions = new PermissionManager({
+      storage: {
+        load: () => options.store.get().permissions.grants,
+        save: (grants) => {
+          options.store.setPermissionGrants(grants);
+        }
+      },
+      ...(options.permissionTimeoutMs === null ? {} : { timeoutMs: options.permissionTimeoutMs }),
+      onChange: () => {
+        const win = this.settingsWindow.browserWindow;
+        if (win !== null && !win.isDestroyed()) {
+          win.webContents.send(IpcChannel.permissionsChanged, null);
+        }
+      }
+    });
+    if (options.toolDevTools) options.logger.info('tools.dev_tools_enabled');
+    const tools = new ToolExecutor({
+      registry: createToolRegistry({ devTools: options.toolDevTools }),
+      permissions: this.permissions,
+      logger: options.logger.child('tools'),
+      app: () => ({
+        name: APP_NAME,
+        version: app.getVersion(),
+        electron: process.versions.electron,
+        chrome: process.versions.chrome,
+        platform: options.platform,
+        arch: process.arch
+      })
+    });
+
     this.assistant = new AssistantService({
+      tools,
       resolveProvider: () => this.providers.resolve(),
       model: () => this.providers.model(),
       forceTimeouts: options.aiTimeoutsOverride,
@@ -679,6 +718,11 @@ export class AppController {
       balloon: {
         close: () => this.balloon?.hide(),
         resize: (height) => this.balloon?.setContentHeight(height)
+      },
+      permissions: {
+        respond: (requestId, decision) => this.permissions.respond(requestId, decision),
+        list: () => this.permissions.list(),
+        revoke: (grantId) => this.permissions.revoke(grantId)
       },
       clipboard: {
         writeText: (text) => clipboard.writeText(text)

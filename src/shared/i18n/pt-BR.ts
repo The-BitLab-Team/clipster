@@ -274,5 +274,55 @@ export const ptBR = {
   'onboarding.ai.configure': 'Configurar IA agora',
   'onboarding.ai.later': 'Depois',
   'onboarding.ai.permissions':
-    'Algumas funções futuras vão pedir sua permissão antes de acessar algo do computador. Você fica no controle.'
+    'Algumas funções futuras vão pedir sua permissão antes de acessar algo do computador. Você fica no controle.',
+
+  'tool.getCurrentTime.label': 'Consultou o relógio',
+  'tool.getClipsterVersion.label': 'Consultou a versão do Clipster',
+  'tool.demoDestructiveAction.label': 'Ferramenta de teste: apagar arquivo',
+  'tool.demoDestructiveAction.action':
+    'Apagar o arquivo “{target}”. (Ferramenta de teste: nada é apagado de verdade.)',
+  'tool.demoReadAction.label': 'Ferramenta de teste: ver arquivos',
+  'tool.demoReadAction.action':
+    'Ver a lista de arquivos da pasta “{folder}”. (Ferramenta de teste: a lista é inventada.)',
+  'tool.unknown.label': 'Ferramenta desconhecida',
+
+  'balloon.tools.label': 'Ferramentas usadas nesta resposta',
+  'balloon.tool.running': '{tool}…',
+  'balloon.tool.done': '{tool}',
+  'balloon.tool.awaiting': '{tool}: esperando sua permissão',
+  'balloon.tool.denied': '{tool}: não permitido',
+  'balloon.tool.failed': '{tool}: não deu certo',
+
+  'balloon.permission.label': 'Pedido de permissão',
+  'balloon.permission.title': 'O Clipster quer fazer isto:',
+  'balloon.permission.needs': 'Precisa de: {permissions}.',
+  'balloon.permission.risk.read': 'Só leitura: nada é alterado.',
+  'balloon.permission.risk.write': 'Vai alterar algo no seu computador.',
+  'balloon.permission.risk.destructive': 'Não dá para desfazer.',
+  'balloon.permission.cancel': 'Cancelar',
+  'balloon.permission.once': 'Permitir uma vez',
+  'balloon.permission.session': 'Nesta sessão',
+  'balloon.permission.always': 'Sempre',
+  'balloon.permission.timeout': 'Sem resposta em {minutes} min, eu cancelo.',
+
+  'permission.clipboard.read': 'ler a área de transferência',
+  'permission.clipboard.write': 'escrever na área de transferência',
+  'permission.filesystem.read': 'ler arquivos',
+  'permission.filesystem.write': 'alterar ou apagar arquivos',
+  'permission.applications.open': 'abrir programas',
+  'permission.notifications.send': 'mostrar notificações',
+  'permission.screen.observe': 'ver a tela',
+  'permission.network.fetch': 'acessar a internet',
+
+  'settings.privacy.permissions': 'Permissões das ferramentas',
+  'settings.privacy.permissions.hint':
+    'Ferramentas que acessam algo do computador sempre pedem antes. Ações que não dá para desfazer pedem toda vez e nunca aparecem aqui.',
+  'settings.privacy.permissions.empty': 'Nenhuma permissão concedida.',
+  'settings.privacy.permissions.always': 'Sempre',
+  'settings.privacy.permissions.session': 'Até fechar o Clipster',
+  'settings.privacy.permissions.detail': '{permissions} · {scope} · desde {date}',
+  'settings.privacy.permissions.revoke': 'Revogar',
+  'settings.privacy.permissions.revoked': 'Permissão revogada.',
+  'settings.privacy.tools':
+    'Sem pedir nada, o Clipster só consulta a hora e a própria versão quando a IA precisa.'
 } as const;

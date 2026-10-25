@@ -20,6 +20,9 @@ import { PERSONALITIES } from '../../src/shared/personalities';
 import { ProviderRegistry } from '../../src/main/ai/providerRegistry';
 import { SecretStore, type SafeStorageLike } from '../../src/main/storage/secretStore';
 import { startAnthropicMock, type MockServer } from '../support/mockProviders';
+import { PermissionManager } from '../../src/main/permissions/permissionManager';
+import { ToolExecutor } from '../../src/main/tools/executor';
+import { createToolRegistry } from '../../src/main/tools/registry';
 import { FakeIpcMain, type FakeSender } from './fakes';
 
 /** Integração renderer → preload → IPC → main, com Electron substituído por dublês (SPEC §29.2). */
@@ -152,6 +155,7 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
   let anthropic: MockServer;
   let secretsDir: string;
   let providers: ProviderRegistry;
+  let permissions: PermissionManager;
 
   beforeAll(async () => {
     anthropic = await startAnthropicMock({ chunkDelayMs: 1, apiKey: ANTHROPIC_KEY });
@@ -187,7 +191,28 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
       logger,
       anthropicBaseUrl: anthropic.url
     });
+    permissions = new PermissionManager({
+      storage: {
+        load: () => settings.permissions.grants,
+        save: (grants) => {
+          settings = { ...settings, permissions: { grants } };
+        }
+      }
+    });
     assistant = new AssistantService({
+      tools: new ToolExecutor({
+        registry: createToolRegistry({ devTools: true }),
+        permissions,
+        logger,
+        app: () => ({
+          name: 'Clipster',
+          version: '0.5.0',
+          electron: '45.0.0',
+          chrome: '146.0.0.0',
+          platform: 'win32',
+          arch: 'x64'
+        })
+      }),
       resolveProvider: () => providers.resolve(),
       model: () => providers.model(),
       personality: () => PERSONALITIES[settings.personality],
@@ -237,6 +262,11 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
       onboarding: { complete: vi.fn() },
       balloon: { close: vi.fn(), resize: vi.fn() },
       clipboard: { writeText: vi.fn(() => Promise.resolve()) },
+      permissions: {
+        respond: (requestId, decision) => permissions.respond(requestId, decision),
+        list: () => permissions.list(),
+        revoke: (grantId) => permissions.revoke(grantId)
+      },
       ai: {
         status: () => providers.status(),
         keyStatus: (provider) => providers.keyStatus(provider),
@@ -545,6 +575,106 @@ describe('registerIpcHandlers (canais do Apêndice C)', () => {
     expect(
       await ipcMain.invoke(IpcChannel.secretsClear, SETTINGS, { provider: 'anthropic' })
     ).toMatchObject({ ok: true, data: { hasKey: false } });
+  });
+
+  it('ferramenta com permissão: o balão responde, as Configurações listam e revogam (SPEC §22)', async () => {
+    const pendingPrompt = async () => {
+      let id = '';
+      await vi.waitFor(() => {
+        const activity = assistant
+          .snapshot()
+          .messages.at(-1)
+          ?.tools?.find((item) => item.status === 'awaiting');
+        expect(activity?.prompt).toBeDefined();
+        id = activity?.prompt?.id ?? '';
+      });
+      return id;
+    };
+    const idle = () =>
+      vi.waitFor(() => {
+        expect(assistant.snapshot().activeRequestId).toBeNull();
+      });
+
+    await ipcMain.invoke(IpcChannel.chatSend, BALLOON, { text: '/simular ferramenta ler Fotos' });
+    const requestId = await pendingPrompt();
+    // Só o balão responde; "sempre" não pode vir de outra janela nem para outro pedido.
+    for (const sender of [SETTINGS, CHARACTER]) {
+      expect(
+        await ipcMain.invoke(IpcChannel.permissionsRespond, sender, {
+          requestId,
+          decision: 'always'
+        })
+      ).toMatchObject({ ok: false, error: { code: 'FORBIDDEN_SENDER' } });
+    }
+    expect(
+      await ipcMain.invoke(IpcChannel.permissionsRespond, BALLOON, {
+        requestId,
+        decision: 'talvez'
+      })
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
+    expect(
+      await ipcMain.invoke(IpcChannel.permissionsRespond, BALLOON, {
+        requestId: 'outro',
+        decision: 'always'
+      })
+    ).toEqual({ ok: true, data: { accepted: false } });
+    expect(
+      await ipcMain.invoke(IpcChannel.permissionsRespond, BALLOON, {
+        requestId,
+        decision: 'always'
+      })
+    ).toEqual({ ok: true, data: { accepted: true } });
+    await idle();
+    expect(assistant.snapshot().messages.at(-1)?.content).toContain('notas.txt');
+
+    // A permissão "sempre" aparece nas Configurações (e só nelas) e pode ser revogada.
+    expect(await ipcMain.invoke(IpcChannel.permissionsList, BALLOON)).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN_SENDER' }
+    });
+    const listed = await ipcMain.invoke(IpcChannel.permissionsList, SETTINGS);
+    expect(listed).toMatchObject({
+      ok: true,
+      data: [{ tool: 'demoReadAction', scope: 'always', permissions: ['filesystem.read'] }]
+    });
+    const grantId = settings.permissions.grants[0]?.id ?? '';
+    expect(await ipcMain.invoke(IpcChannel.permissionsRevoke, BALLOON, { grantId })).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN_SENDER' }
+    });
+    expect(await ipcMain.invoke(IpcChannel.permissionsRevoke, SETTINGS, { grantId })).toEqual({
+      ok: true,
+      data: { revoked: true }
+    });
+    expect(settings.permissions.grants).toEqual([]);
+
+    // Ação destrutiva: "sempre" é recusado pelo main mesmo vindo do balão.
+    await ipcMain.invoke(IpcChannel.chatSend, BALLOON, {
+      text: '/simular ferramenta apagar teste.txt'
+    });
+    const destructive = await pendingPrompt();
+    expect(
+      await ipcMain.invoke(IpcChannel.permissionsRespond, BALLOON, {
+        requestId: destructive,
+        decision: 'always'
+      })
+    ).toEqual({ ok: true, data: { accepted: false } });
+    await ipcMain.invoke(IpcChannel.permissionsRespond, BALLOON, {
+      requestId: destructive,
+      decision: 'deny'
+    });
+    await idle();
+    expect(assistant.snapshot().messages.at(-1)?.tools).toEqual([
+      { id: 'demo-call-1', tool: 'demoDestructiveAction', status: 'denied' }
+    ]);
+    expect(settings.permissions.grants).toEqual([]);
+
+    // Nenhum renderer cria permissão por `settings:update`.
+    expect(
+      await ipcMain.invoke(IpcChannel.settingsUpdate, SETTINGS, {
+        permissions: { grants: [] }
+      })
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_PAYLOAD' } });
   });
 
   it('todos os canais registrados estão na lista explícita', () => {

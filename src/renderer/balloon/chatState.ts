@@ -3,6 +3,7 @@ import type {
   ConversationMessage,
   ConversationSnapshot
 } from '../../shared/ai/conversation';
+import type { PermissionPrompt, ToolActivity } from '../../shared/tools/types';
 
 /**
  * Estado da conversa dentro do balão: uma cópia do que está no main, atualizada pelos
@@ -69,6 +70,21 @@ export function applyChatEvent(state: ChatState, event: ChatEvent): ChatState {
       messages[index] = { ...current, content: current.content + event.text };
       return { ...state, messages };
     }
+    case 'tool': {
+      const index = state.messages.findIndex((item) => item.id === event.messageId);
+      const current = state.messages[index];
+      if (current === undefined) return state;
+      const tools = current.tools ?? [];
+      const known = tools.some((item) => item.id === event.activity.id);
+      const messages = [...state.messages];
+      messages[index] = {
+        ...current,
+        tools: known
+          ? tools.map((item) => (item.id === event.activity.id ? event.activity : item))
+          : [...tools, event.activity]
+      };
+      return { ...state, messages };
+    }
     case 'done':
     case 'cancelled':
     case 'error':
@@ -120,4 +136,19 @@ export function plainText(markdown: string): string {
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .trim();
+}
+
+/** Pedido de permissão em aberto (no máximo um por vez: as ferramentas rodam em sequência). */
+export function pendingPermission(state: ChatState): {
+  messageId: string;
+  activity: ToolActivity & { prompt: PermissionPrompt };
+} | null {
+  for (const message of state.messages) {
+    for (const activity of message.tools ?? []) {
+      if (activity.status === 'awaiting' && activity.prompt !== undefined) {
+        return { messageId: message.id, activity: { ...activity, prompt: activity.prompt } };
+      }
+    }
+  }
+  return null;
 }
