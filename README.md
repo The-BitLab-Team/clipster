@@ -191,7 +191,6 @@ Isolamento de contexto, sandbox, CSP estrita, protocolo próprio `app://` no lug
 - O atalho global é fixo (`Ctrl+Shift+Espaço`, `⌘+Shift+Espaço` no macOS); escolher outro fica para uma próxima versão.
 - A OpenAI é usada pela API Chat Completions, que continua suportada; a API Responses fica para depois (ver [`docs/decisions.md`](docs/decisions.md)).
 - Modelos que "pensam" antes de responder: o Clipster mostra o personagem pensando, mas não exibe o raciocínio.
-- **Memória:** medida num Linux sem placa de vídeo, fica em torno de 290 MB (meta da SPEC: 250 MB). Falta medir no Windows com `npm run measure`.
 - Sem atualização automática: "Verificar atualizações" (Configurações › Sobre) abre a página de versões do repositório, e só aparece depois da decisão D6.
 
 ## Roadmap

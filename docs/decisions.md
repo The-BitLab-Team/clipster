@@ -274,5 +274,8 @@ O Xvfb não aceita monitores virtuais (`xrandr --setmonitor` é ignorado) nem o 
 ### 2026-10-25 · Memória acima da meta no ambiente de teste
 Em Linux sem placa de vídeo (renderização por software), cerca de 290 MB de PSS com o personagem e o balão pré-criado, acima dos 250 MB da SPEC §25. Seguindo "medir antes de otimizar", nada foi cortado às cegas: o balão pré-criado é exigência da SPEC (abre na hora) e o processo de GPU por software pesa mais que no Windows. A medição no Windows (`npm run measure`) decide se há algo a fazer.
 
+### 2026-10-26 · Memória no Windows dentro da meta
+No Windows x64, `npm run measure` deu 241 MB de memória privada (5 processos), CPU de 0,07% à disposição e 0,01% dormindo e o personagem em menos de 2 s: as três metas da SPEC §25 atendidas. Os ~290 MB do Linux vinham da renderização por software. Nenhuma otimização de memória é necessária para o MVP.
+
 ### 2026-10-25 · Versão 0.6.0
 Acessibilidade verificada, medição de desempenho, vários monitores e escala testados, instalador revisado, diagnóstico e documentação completa (Fase 6). O primeiro release público ainda depende do roteiro de QA no Windows e das decisões D1–D7.

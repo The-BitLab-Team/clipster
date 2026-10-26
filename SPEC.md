@@ -840,7 +840,7 @@ O app fica aberto por horas. Metas iniciais (medir e registrar em `docs/compatib
 - CPU com o personagem em `idle`/`sleeping`: ~0% (média < 0,5% em 1 minuto numa máquina comum).
 - Memória total só com o personagem: alvo ≤ 250 MB (Electron tem custo base; medir antes de otimizar).
 - Personagem visível em < 2 s após iniciar.
-- *Medido (v0.6.0, `npm run measure`, Linux sem GPU):* personagem em 0,7 s; CPU 0,3% à disposição e 0,1% dormindo; memória ~290 MB de PSS (acima da meta, com renderização por software). Medição no Windows pendente.
+- *Medido (v0.6.0, `npm run measure`, Linux sem GPU):* personagem em 0,7 s; CPU 0,3% à disposição e 0,1% dormindo; memória ~290 MB de PSS (acima da meta, com renderização por software). *Medido no Windows x64 (v0.6.0, 26/10/2026):* personagem em < 2 s; CPU 0,07% à disposição e 0,01% dormindo; memória privada de 241 MB. Dentro das três metas.
 
 Regras:
 

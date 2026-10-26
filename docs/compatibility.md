@@ -2,13 +2,13 @@
 
 Legenda: **Testado** = verificado de fato · **Deve funcionar** = implementado, mas não verificado nessa plataforma · **Não testado** = sem verificação nem expectativa firme · **N/A** = não se aplica.
 
-Atualizado em 25/10/2026 (versão 0.6.0). Até aqui, os testes rodaram apenas num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real), bandeja nem vários monitores. O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
+Atualizado em 26/10/2026 (versão 0.6.0). Os testes automáticos rodaram num **Linux sem desktop (Xvfb)** dentro de um contêiner: lá não há compositor (transparência real) nem bandeja. No Windows, o dono do produto rodou a medição de desempenho (`npm run measure`, abaixo). O roteiro para o Windows está em [`qa-checklist.md`](qa-checklist.md).
 
 ## Por recurso
 
 | Recurso | Windows 10/11 | macOS | Linux X11 | Linux Wayland |
 |---------|---------------|-------|-----------|---------------|
-| App inicia, personagem aparece | Deve funcionar | Deve funcionar | **Testado** (Xvfb, E2E) | Não testado |
+| App inicia, personagem aparece | **Testado** (`npm run measure`, build de `out/`) | Deve funcionar | **Testado** (Xvfb, E2E) | Não testado |
 | Transparência real | Deve funcionar | Deve funcionar | Deve funcionar (exige compositor) | Não testado |
 | Não rouba foco (`showInactive`) | Deve funcionar | Deve funcionar | Deve funcionar | Não testado |
 | Fora da barra de tarefas | Deve funcionar | N/A (Dock) | Deve funcionar | Não testado |
@@ -58,8 +58,8 @@ Atualizado em 25/10/2026 (versão 0.6.0). Até aqui, os testes rodaram apenas nu
 
 | Ambiente | Personagem visível | CPU à disposição | CPU dormindo | Memória | Observação |
 |----------|--------------------|------------------|--------------|---------|------------|
-| Linux/Xvfb, contêiner, renderização por software (v0.6.0) | 0,7 s | 0,3% | 0,1% | ~290 MB | Sem GPU: o processo de GPU por software pesa mais. Acima da meta de 250 MB; medir no Windows antes de otimizar. |
-| Windows 10/11 | — | — | — | — | Preencher com `npm run measure`. |
+| Linux/Xvfb, contêiner, renderização por software (v0.6.0) | 0,7 s | 0,3% | 0,1% | ~290 MB | Sem GPU: o processo de GPU por software pesa mais. Acima da meta de 250 MB só neste ambiente. |
+| Windows x64, Electron 45.0.0, computador do dono do produto (v0.6.0, 26/10/2026) | < 2 s | 0,07% | 0,01% | 241 MB | Dentro das três metas. 5 processos; working set somado de 433 MB (só referência: conta as bibliotecas compartilhadas várias vezes). |
 
 Metas: personagem em < 2 s; CPU parado < 0,5%; memória ≤ 250 MB.
 
